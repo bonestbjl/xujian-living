@@ -23,23 +23,31 @@ const areaOptions = ["80㎡以下", "80–100㎡", "100–120㎡", "120–150㎡
 const diagnosisKey = "xujian-diagnosis";
 
 interface DiagnosisState {
+  layout: string;
   areaRange: string;
   members: string[];
+  habits: string[];
+  storageNeeds: string[];
   messySpaces: string[];
   problems: string[];
   futureChanges: string[];
   style: string;
   priority: string;
+  budgetPreference: string;
 }
 
 const defaultDiagnosis: DiagnosisState = {
+  layout: "三室两厅",
   areaRange: "100–120㎡",
   members: ["伴侣", "一个孩子"],
+  habits: ["经常居家办公", "孩子会在客厅活动"],
+  storageNeeds: ["鞋子很多", "小家电需要集中收纳"],
   messySpaces: ["玄关", "餐厅", "儿童房"],
   problems: ["鞋子没有地方放", "小家电占满餐桌", "没有固定办公区"],
   futureChanges: ["孩子即将上学", "居家办公增加"],
   style: "现代原木",
-  priority: "先把空间规划好"
+  priority: "先把空间规划好",
+  budgetPreference: "设计与品质平衡"
 };
 
 function loadDiagnosis(): DiagnosisState {
@@ -73,11 +81,11 @@ function diagnosisToMatchInput(input: DiagnosisState): MatchInput {
     ["柜子", "强收纳"],
     ["宠物", "宠物"]
   ];
-  const joined = [...input.problems, ...input.futureChanges, ...input.messySpaces].join(" ");
+  const joined = [...input.problems, ...input.futureChanges, ...input.messySpaces, ...input.habits, ...input.storageNeeds].join(" ");
   const needs = needMap.filter(([key]) => joined.includes(key)).map(([, value]) => value);
   return {
     areaRange: input.areaRange,
-    layout: input.areaRange === "150㎡以上" ? "大平层" : input.areaRange === "80㎡以下" ? "两室" : input.areaRange === "120–150㎡" ? "四室" : "三室",
+    layout: input.layout.includes("大平层") ? "大平层" : input.layout.includes("四") ? "四室" : input.layout.includes("两") ? "两室" : "三室",
     familyType: getDiagnosisFamily(input),
     needs: needs.length ? Array.from(new Set(needs)) : ["强收纳"],
     style: input.style === "奶油自然" ? "奶油极简" : input.style === "自然松弛" ? "现代自然" : input.style
@@ -88,22 +96,22 @@ function getDiagnosisJudgements(input: DiagnosisState) {
   const judgements = [
     {
       title: "收纳缺少完整路径",
-      body: "你的问题可能不是储物空间不足，而是玄关、餐厅、卧室之间没有形成完整的物品归位路径。"
+      body: `你的问题可能不是储物空间不足，而是${input.messySpaces.slice(0, 3).join("、")}之间没有形成完整的物品归位路径。`
     }
   ];
-  if (input.futureChanges.includes("孩子即将上学") || input.members.includes("一个孩子") || input.members.includes("两个及以上孩子")) {
+  if (input.futureChanges.includes("孩子即将上学") || input.members.includes("一个孩子") || input.members.includes("两个及以上孩子") || input.habits.includes("孩子会在客厅活动")) {
     judgements.push({
       title: "儿童房需要考虑未来变化",
       body: "孩子进入学习阶段后，儿童房需要预留学习、书籍和未来衣物增长空间。"
     });
   }
-  if (input.messySpaces.includes("餐厅") || input.problems.includes("小家电占满餐桌")) {
+  if (input.messySpaces.includes("餐厅") || input.problems.includes("小家电占满餐桌") || input.storageNeeds.includes("小家电需要集中收纳")) {
     judgements.push({
       title: "餐厅可能承担第二收纳中心",
       body: "对于有小家电、饮水和咖啡需求的家庭，餐厅通常不只是吃饭区域。"
     });
   }
-  if (input.problems.includes("没有固定办公区") || input.futureChanges.includes("居家办公增加")) {
+  if (input.problems.includes("没有固定办公区") || input.futureChanges.includes("居家办公增加") || input.habits.includes("经常居家办公")) {
     judgements.push({
       title: "办公区不一定需要单独书房",
       body: "可以通过客厅、主卧或开放书房重新组织空间，让工作设备和文件有固定位置。"
@@ -155,78 +163,23 @@ function PillPicker({
 }
 
 function HomePage() {
-  const featured = cases.slice(0, 3);
   return (
-    <>
-      <section className="hero" style={{ backgroundImage: `linear-gradient(90deg, rgba(25,24,22,.72), rgba(25,24,22,.16)), url(${images.hero})` }}>
-        <div className="hero__content reveal">
-          <span className="eyebrow">{brand.enName}</span>
-          <h1>你的家，不该被标准答案定义。</h1>
-          <p>从户型、家庭成员到生活习惯，先找到真正需要解决的问题，再开始设计。</p>
-          <div className="button-row">
-            <Link className="button light" to="/diagnosis">开始空间诊断</Link>
-            <Link className="button outline-light" to="/cases">查看真实案例</Link>
-          </div>
-          <p className="hero-note">已整理 {brand.solutionCount} 套不同家庭结构与户型需求的设计方案</p>
+    <section className="hero home-hero" style={{ backgroundImage: `linear-gradient(90deg, rgba(25,24,22,.72), rgba(25,24,22,.16)), url(${images.hero})` }}>
+      <div className="hero__content reveal">
+        <span className="eyebrow">{brand.enName}</span>
+        <h1>你的家，不该被标准答案定义。</h1>
+        <p>从户型、家庭成员到生活习惯，先找到真正需要解决的问题，再开始设计。</p>
+        <div className="button-row">
+          <Link className="button light" to="/diagnosis">开始空间诊断</Link>
+          <Link className="button outline-light" to="/cases">查看真实案例</Link>
         </div>
-      </section>
-
-      <section className="section">
-        <div className="section-title split">
-          <div>
-            <span className="eyebrow">DIAGNOSIS FIRST</span>
-            <h2>设计之前，先看清问题。</h2>
-          </div>
-          <Link className="text-link" to="/diagnosis">看看我家属于哪一种</Link>
+        <p className="hero-note">已整理 {brand.solutionCount} 套不同家庭结构与户型需求的设计方案</p>
+        <div className="home-next-hint">
+          <strong>下一步</strong>
+          <span>2 分钟完成诊断，结果页会给出空间方向、案例、Moodboard 与预算建议。</span>
         </div>
-        <div className="problem-grid home-problems">
-          {["柜子很多，家里还是乱", "儿童房很快就不够用", "餐厅承担了太多功能", "每个房间单独设计，却没有完整收纳系统"].map((item) => (
-            <article key={item}>
-              <strong>{item}</strong>
-              <p>先判断问题发生在动线、成长、功能叠加还是整体收纳路径，再进入设计。</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="section warm">
-        <div className="section-title split">
-          <div>
-            <span className="eyebrow">RECOMMENDED CASES</span>
-            <h2>先看少量相似家庭，理解问题如何被解决。</h2>
-          </div>
-          <Link className="text-link" to="/cases">进入完整案例库</Link>
-        </div>
-        <div className="case-grid home-case-grid">
-          {featured.map((item) => (
-            <article className="case-card home-case-card" key={item.id}>
-              <img src={item.cover} alt={`${item.title}案例`} />
-              <div className="case-card__body">
-                <span className="eyebrow">{item.area}㎡ / {item.familyLabel}</span>
-                <h3>{item.city} · {item.community}</h3>
-                <div className="before-after compact">
-                  <div>
-                    <strong>问题</strong>
-                    <p>{item.needs.join("、")}。</p>
-                  </div>
-                  <div>
-                    <strong>结果</strong>
-                    <p>{item.highlight}</p>
-                  </div>
-                </div>
-                <Link className="text-link" to={`/cases/${item.id}`}>查看这个家庭怎么解决</Link>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="final-cta">
-        <span className="eyebrow">NEXT STEP</span>
-        <h2>先花 2 分钟，看看你家真正需要解决什么。</h2>
-        <Link className="button light" to="/diagnosis">开始诊断</Link>
-      </section>
-    </>
+      </div>
+    </section>
   );
 }
 
@@ -257,7 +210,7 @@ function DiagnosisPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [input, setInput] = useState<DiagnosisState>(() => loadDiagnosis());
-  const stepsTotal = 7;
+  const stepsTotal = 8;
   const styleImages = [images.calmLiving, images.warmDining, images.study, images.entryway, images.kitchen, images.bedroom];
 
   useEffect(() => {
@@ -281,8 +234,12 @@ function DiagnosisPage() {
         </div>
 
         {step === 1 && (
-          <WizardStep title="你的家有多大？">
-            <PillPicker options={areaOptions} value={input.areaRange} onChange={(v) => setInput({ ...input, areaRange: v as string })} />
+          <WizardStep title="你家是什么户型？">
+            <PillPicker
+              options={["两室一厅", "两室两厅", "三室两厅", "四室两厅", "大平层", "复式"]}
+              value={input.layout}
+              onChange={(v) => setInput({ ...input, layout: v as string })}
+            />
           </WizardStep>
         )}
 
@@ -299,19 +256,30 @@ function DiagnosisPage() {
         )}
 
         {step === 3 && (
-          <WizardStep title="你家最容易乱在哪里？">
-            <p className="muted">最多选择 3 个重点空间。</p>
+          <WizardStep title="哪些生活习惯最像你家？">
             <PillPicker
               multi
-              options={["玄关", "客厅", "餐厅", "厨房", "主卧", "儿童房", "阳台", "到处都乱"]}
-              value={input.messySpaces}
-              onChange={(v) => setInput({ ...input, messySpaces: v as string[] })}
+              options={["经常居家办公", "每天做饭", "常在家喝咖啡", "孩子会在客厅活动", "父母偶尔长住", "有宠物", "朋友经常来家里"]}
+              value={input.habits}
+              onChange={(v) => setInput({ ...input, habits: v as string[] })}
               maxSelections={3}
             />
           </WizardStep>
         )}
 
         {step === 4 && (
+          <WizardStep title="收纳最需要解决什么？">
+            <PillPicker
+              multi
+              options={["鞋子很多", "衣服很多", "换季被褥", "小家电需要集中收纳", "玩具绘本", "清洁用品", "宠物用品", "文件和办公设备"]}
+              value={input.storageNeeds}
+              onChange={(v) => setInput({ ...input, storageNeeds: v as string[] })}
+              maxSelections={4}
+            />
+          </WizardStep>
+        )}
+
+        {step === 5 && (
           <WizardStep title="下面哪些问题最像你家？">
             <PillPicker
               multi
@@ -319,18 +287,6 @@ function DiagnosisPage() {
               value={input.problems}
               onChange={(v) => setInput({ ...input, problems: v as string[] })}
               maxSelections={10}
-            />
-          </WizardStep>
-        )}
-
-        {step === 5 && (
-          <WizardStep title="你未来 3–5 年可能发生哪些变化？">
-            <PillPicker
-              multi
-              options={["准备结婚", "准备要孩子", "孩子即将上学", "二胎计划", "父母可能同住", "居家办公增加", "养宠物", "暂时没有明显变化"]}
-              value={input.futureChanges}
-              onChange={(v) => setInput({ ...input, futureChanges: v as string[] })}
-              maxSelections={8}
             />
           </WizardStep>
         )}
@@ -349,11 +305,24 @@ function DiagnosisPage() {
         )}
 
         {step === 7 && (
-          <WizardStep title="你目前最关心什么？">
+          <WizardStep title="哪些空间最需要优先规划？">
+            <p className="muted">最多选择 3 个重点空间。</p>
             <PillPicker
-              options={["先把空间规划好", "收纳能力", "设计效果", "材料环保", "预算控制", "后期落地效果"]}
-              value={input.priority}
-              onChange={(v) => setInput({ ...input, priority: v as string })}
+              multi
+              options={["玄关", "客厅", "餐厅", "厨房", "主卧", "儿童房", "书房", "阳台", "到处都乱"]}
+              value={input.messySpaces}
+              onChange={(v) => setInput({ ...input, messySpaces: v as string[] })}
+              maxSelections={3}
+            />
+          </WizardStep>
+        )}
+
+        {step === 8 && (
+          <WizardStep title="你目前更倾向哪种预算方式？">
+            <PillPicker
+              options={["先把空间规划好", "实用优先", "设计与品质平衡", "高阶质感", "严格控制预算", "后期落地效果更重要"]}
+              value={input.budgetPreference}
+              onChange={(v) => setInput({ ...input, budgetPreference: v as string, priority: v as string })}
             />
           </WizardStep>
         )}
@@ -368,19 +337,25 @@ function DiagnosisPage() {
 }
 
 function DiagnosisResultPage() {
+  const { openLead } = useLead();
   const [input] = useState<DiagnosisState>(() => loadDiagnosis());
   const matchInput = useMemo(() => diagnosisToMatchInput(input), [input]);
   const results = useMemo(() => matchCases(cases, matchInput).slice(0, 3), [matchInput]);
   const judgements = getDiagnosisJudgements(input);
   const focusSpaces = Array.from(new Set(input.messySpaces.includes("到处都乱") ? ["玄关", "餐厅", "儿童房", "书房"] : input.messySpaces)).slice(0, 4);
   const family = getDiagnosisFamily(input);
+  const moodboard = [
+    { title: input.style, image: images.calmLiving, body: "整体保持温暖、安静和真实居住感。" },
+    { title: "重点收纳", image: images.entryway, body: input.storageNeeds.slice(0, 2).join(" / ") || "玄关与餐边柜优先建立归位路径。" },
+    { title: "日常场景", image: images.warmDining, body: input.habits.slice(0, 2).join(" / ") || "餐厅和公共区承担更多家庭活动。" }
+  ];
   return (
     <section className="page-section diagnosis-result-page">
       <header className="diagnosis-result-hero">
         <span className="eyebrow">空间诊断完成</span>
         <h1>根据你的选择，你的家庭属于：<br />成长型 · 高收纳需求家庭</h1>
         <div className="result-tags">
-          {[input.areaRange, `${family}家庭`, ...input.futureChanges.slice(0, 2), `偏好${input.style}`].map((tag) => <span key={tag}>{tag}</span>)}
+          {[input.layout, input.areaRange, `${family}家庭`, ...input.habits.slice(0, 2), `偏好${input.style}`].map((tag) => <span key={tag}>{tag}</span>)}
         </div>
       </header>
 
@@ -404,7 +379,7 @@ function DiagnosisResultPage() {
         <div className="section-title split">
           <div>
             <span className="eyebrow">FOCUS SPACES</span>
-            <h2>你的重点空间</h2>
+            <h2>推荐空间方向</h2>
           </div>
           <Link className="text-link" to="/inspiration">查看空间效果</Link>
         </div>
@@ -412,8 +387,27 @@ function DiagnosisResultPage() {
           {focusSpaces.map((space) => (
             <Link to={`/inspiration?category=${space}`} className="focus-space-card" key={space}>
               <strong>{space}</strong>
-              <p>查看这个空间的解决思路</p>
+              <p>{space === "玄关" ? "先建立回家后的物品归位路径。" : space === "餐厅" ? "把小家电、饮水和家庭杂物集中管理。" : space === "儿童房" ? "预留学习和成长阶段变化空间。" : "查看这个空间的解决思路。"}</p>
             </Link>
+          ))}
+        </div>
+      </section>
+
+      <section className="section">
+        <div className="section-title">
+          <span className="eyebrow">STYLE DIRECTION</span>
+          <h2>适合你的设计风格与 Moodboard：{input.style}</h2>
+          <p>建议以{input.style}作为主视觉方向，同时控制开放格比例，让收纳和空间质感同时成立。</p>
+        </div>
+        <div className="moodboard-grid">
+          {moodboard.map((item) => (
+            <article className="moodboard-card" key={item.title}>
+              <img src={item.image} alt={item.title} />
+              <div>
+                <strong>{item.title}</strong>
+                <p>{item.body}</p>
+              </div>
+            </article>
           ))}
         </div>
       </section>
@@ -428,11 +422,35 @@ function DiagnosisResultPage() {
         </div>
       </section>
 
+      <section className="section warm">
+        <div className="section-title">
+          <span className="eyebrow">MATERIAL & BUDGET</span>
+          <h2>材料建议与预算方向</h2>
+          <p>你的预算倾向：{input.budgetPreference}。当前阶段先用区间判断项目量级，不做假精准报价。</p>
+        </div>
+        <div className="result-advice-grid">
+          {materialCards.slice(0, 3).map((item) => (
+            <article key={item.title}>
+              <img src={item.image} alt={item.title} />
+              <h3>{item.title}</h3>
+              <p>{item.body}</p>
+            </article>
+          ))}
+          <article className="budget-advice-card">
+            <span className="eyebrow">BUDGET</span>
+            <h3>{input.budgetPreference.includes("严格") ? "先控制定制范围" : "建议先做完整规划"}</h3>
+            <p>优先确认玄关、餐厅、主卧和重点空间的柜体范围，再根据材料和五金选择拉开预算区间。</p>
+            <Link className="text-link" to="/budget">进入预算规划</Link>
+          </article>
+        </div>
+      </section>
+
       <section className="final-cta">
-        <h2>下一步，用案例验证判断，再规划预算范围。</h2>
+        <h2>下一步，把诊断结果发给设计师，看看你的户型能怎么落地。</h2>
         <div className="button-row center">
           <Link className="button light" to="/cases">查看推荐案例</Link>
           <Link className="button outline-light" to="/budget">规划我的预算</Link>
+          <button className="button outline-light" onClick={openLead}>上传户型 / 提交需求</button>
         </div>
       </section>
     </section>

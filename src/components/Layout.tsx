@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, NavLink, Outlet } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { ClipboardCheck, FileText, Home, Images, Menu, MessageCircle, X } from "lucide-react";
 import { brand } from "../config/brand";
 import { contact } from "../config/contact";
@@ -17,6 +17,8 @@ const nav = [
 export function Layout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [leadOpen, setLeadOpen] = useState(false);
+  const location = useLocation();
+  const showFooter = location.pathname !== "/";
   return (
     <>
       <header className="site-header">
@@ -48,18 +50,20 @@ export function Layout() {
       <main>
         <Outlet context={{ openLead: () => setLeadOpen(true) }} />
       </main>
-      <footer className="site-footer">
-        <div>
-          <h2>{brand.cnName}</h2>
-          <p>{brand.slogan}</p>
-          <p className="muted">{brand.intro}</p>
-        </div>
-        <div>
-          <strong>{contact.studioName}</strong>
-          <p>{contact.demoAddress}</p>
-          <p>服务城市：{contact.serviceCities.join(" / ")}</p>
-        </div>
-      </footer>
+      {showFooter && (
+        <footer className="site-footer">
+          <div>
+            <h2>{brand.cnName}</h2>
+            <p>{brand.slogan}</p>
+            <p className="muted">{brand.intro}</p>
+          </div>
+          <div>
+            <strong>{contact.studioName}</strong>
+            <p>{contact.demoAddress}</p>
+            <p>服务城市：{contact.serviceCities.join(" / ")}</p>
+          </div>
+        </footer>
+      )}
       <nav className="bottom-tabs">
         <NavLink to="/"><Home size={18} />首页</NavLink>
         <NavLink to="/diagnosis"><ClipboardCheck size={18} />诊断</NavLink>

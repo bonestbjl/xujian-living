@@ -202,6 +202,20 @@ p, li {
   padding-left: 1rem;
 }
 
+.home-next-hint {
+  border-top: 1px solid rgba(255, 250, 242, 0.28);
+  color: rgba(255, 250, 242, 0.86);
+  display: grid;
+  gap: 0.3rem;
+  margin-top: 1.4rem;
+  max-width: 540px;
+  padding-top: 1rem;
+}
+
+.home-next-hint strong {
+  color: var(--paper);
+}
+
 .button-row {
   display: flex;
   flex-wrap: wrap;
@@ -608,6 +622,42 @@ p, li {
   display: block;
   font-size: 1.5rem;
   margin-bottom: 0.8rem;
+}
+
+.moodboard-grid,
+.result-advice-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.moodboard-card,
+.result-advice-grid article {
+  background: var(--paper);
+  border: 1px solid var(--line);
+}
+
+.moodboard-card img,
+.result-advice-grid img {
+  aspect-ratio: 4 / 3;
+  width: 100%;
+}
+
+.moodboard-card div,
+.result-advice-grid article {
+  padding: 1rem;
+}
+
+.result-advice-grid article img {
+  margin: -1rem -1rem 1rem;
+  max-width: calc(100% + 2rem);
+  width: calc(100% + 2rem);
+}
+
+.budget-advice-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .filter-panel {
@@ -1560,9 +1610,28 @@ blockquote {
     padding-bottom: 5rem;
   }
 
+  .home-hero {
+    min-height: calc(100svh - 70px);
+    padding-bottom: 5.7rem;
+    padding-top: 5.2rem;
+  }
+
+  .home-hero .hero__content p {
+    font-size: 1rem;
+  }
+
+  .home-next-hint {
+    font-size: 0.88rem;
+  }
+
   .section,
   .page-section {
     padding: 3rem 1rem;
+  }
+
+  .diagnosis-page,
+  .page-section {
+    padding-bottom: 5.4rem;
   }
 
   .case-grid,
@@ -1571,6 +1640,8 @@ blockquote {
   .material-grid,
   .inspiration-grid,
   .style-grid,
+  .moodboard-grid,
+  .result-advice-grid,
   .problem-grid,
   .plan-grid,
   .stat-grid,
