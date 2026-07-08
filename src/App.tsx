@@ -1,0 +1,1274 @@
+import { useEffect, useMemo, useState } from "react";
+import { Link, Navigate, NavLink, Outlet, Route, Routes, useNavigate, useOutletContext, useParams, useSearchParams } from "react-router-dom";
+import { Bell, BriefcaseBusiness, CalendarClock, Check, ChevronRight, ClipboardList, FileImage, Filter, LayoutDashboard, Plus, Search, Settings, UserRound } from "lucide-react";
+import { Layout } from "./components/Layout";
+import { CaseCard } from "./components/CaseCard";
+import { HotspotImage } from "./components/HotspotImage";
+import { LeadForm } from "./components/LeadForm";
+import { brand } from "./config/brand";
+import { contact } from "./config/contact";
+import { cases, getCase, getSimilarCases } from "./data/cases";
+import { designers } from "./data/designers";
+import { images } from "./data/images";
+import { inspirationCategories, inspirations, getInspiration } from "./data/inspiration";
+import { materialCards, processSteps } from "./data/materials";
+import { estimateBudget, type BudgetLevel, type MaterialLevel } from "./data/budgetRules";
+import { activities, adminLeads, dashboardMetrics, followUps, funnelSteps, salesPeople, type AdminLead } from "./data/admin";
+import { matchCases, type MatchInput } from "./utils/match";
+import { intentLabels, leadStatusLabels } from "./config/leadScoring";
+
+type OutletTools = { openLead: () => void };
+
+const areaOptions = ["80㎡以下", "80–100㎡", "100–120㎡", "120–150㎡", "150㎡以上"];
+const diagnosisKey = "xujian-diagnosis";
+
+interface DiagnosisState {
+  areaRange: string;
+  members: string[];
+  messySpaces: string[];
+  problems: string[];
+  futureChanges: string[];
+  style: string;
+  priority: string;
+}
+
+const defaultDiagnosis: DiagnosisState = {
+  areaRange: "100–120㎡",
+  members: ["伴侣", "一个孩子"],
+  messySpaces: ["玄关", "餐厅", "儿童房"],
+  problems: ["鞋子没有地方放", "小家电占满餐桌", "没有固定办公区"],
+  futureChanges: ["孩子即将上学", "居家办公增加"],
+  style: "现代原木",
+  priority: "先把空间规划好"
+};
+
+function loadDiagnosis(): DiagnosisState {
+  try {
+    const raw = localStorage.getItem(diagnosisKey);
+    return raw ? { ...defaultDiagnosis, ...JSON.parse(raw) } : defaultDiagnosis;
+  } catch {
+    return defaultDiagnosis;
+  }
+}
+
+function saveDiagnosis(input: DiagnosisState) {
+  localStorage.setItem(diagnosisKey, JSON.stringify(input));
+}
+
+function getDiagnosisFamily(input: DiagnosisState) {
+  if (input.members.includes("两个及以上孩子")) return "二胎";
+  if (input.members.includes("一个孩子")) return "三口";
+  if (input.members.includes("父母")) return "三代同堂";
+  if (input.members.includes("伴侣")) return "新婚";
+  return "独居";
+}
+
+function diagnosisToMatchInput(input: DiagnosisState): MatchInput {
+  const needMap = [
+    ["儿童", "儿童成长"],
+    ["办公", "居家办公"],
+    ["餐桌", "厨房效率"],
+    ["鞋", "强收纳"],
+    ["衣服", "强收纳"],
+    ["柜子", "强收纳"],
+    ["宠物", "宠物"]
+  ];
+  const joined = [...input.problems, ...input.futureChanges, ...input.messySpaces].join(" ");
+  const needs = needMap.filter(([key]) => joined.includes(key)).map(([, value]) => value);
+  return {
+    areaRange: input.areaRange,
+    layout: input.areaRange === "150㎡以上" ? "大平层" : input.areaRange === "80㎡以下" ? "两室" : input.areaRange === "120–150㎡" ? "四室" : "三室",
+    familyType: getDiagnosisFamily(input),
+    needs: needs.length ? Array.from(new Set(needs)) : ["强收纳"],
+    style: input.style === "奶油自然" ? "奶油极简" : input.style === "自然松弛" ? "现代自然" : input.style
+  };
+}
+
+function getDiagnosisJudgements(input: DiagnosisState) {
+  const judgements = [
+    {
+      title: "收纳缺少完整路径",
+      body: "你的问题可能不是储物空间不足，而是玄关、餐厅、卧室之间没有形成完整的物品归位路径。"
+    }
+  ];
+  if (input.futureChanges.includes("孩子即将上学") || input.members.includes("一个孩子") || input.members.includes("两个及以上孩子")) {
+    judgements.push({
+      title: "儿童房需要考虑未来变化",
+      body: "孩子进入学习阶段后，儿童房需要预留学习、书籍和未来衣物增长空间。"
+    });
+  }
+  if (input.messySpaces.includes("餐厅") || input.problems.includes("小家电占满餐桌")) {
+    judgements.push({
+      title: "餐厅可能承担第二收纳中心",
+      body: "对于有小家电、饮水和咖啡需求的家庭，餐厅通常不只是吃饭区域。"
+    });
+  }
+  if (input.problems.includes("没有固定办公区") || input.futureChanges.includes("居家办公增加")) {
+    judgements.push({
+      title: "办公区不一定需要单独书房",
+      body: "可以通过客厅、主卧或开放书房重新组织空间，让工作设备和文件有固定位置。"
+    });
+  }
+  return judgements.slice(0, 4);
+}
+
+function useLead() {
+  return useOutletContext<OutletTools>();
+}
+
+function PillPicker({
+  options,
+  value,
+  onChange,
+  multi = false,
+  maxSelections = 4
+}: {
+  options: string[];
+  value: string | string[];
+  onChange: (value: string | string[]) => void;
+  multi?: boolean;
+  maxSelections?: number;
+}) {
+  return (
+    <div className="pill-grid">
+      {options.map((option) => {
+        const selected = Array.isArray(value) ? value.includes(option) : value === option;
+        return (
+          <button
+            className={selected ? "pill selected" : "pill"}
+            key={option}
+            onClick={() => {
+              if (!multi) onChange(option);
+              else {
+                const current = Array.isArray(value) ? value : [];
+                onChange(current.includes(option) ? current.filter((item) => item !== option) : [...current, option].slice(0, maxSelections));
+              }
+            }}
+            type="button"
+          >
+            {option}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function HomePage() {
+  const featured = cases.slice(0, 3);
+  return (
+    <>
+      <section className="hero" style={{ backgroundImage: `linear-gradient(90deg, rgba(25,24,22,.72), rgba(25,24,22,.16)), url(${images.hero})` }}>
+        <div className="hero__content reveal">
+          <span className="eyebrow">{brand.enName}</span>
+          <h1>你的家，不该被标准答案定义。</h1>
+          <p>从户型、家庭成员到生活习惯，先找到真正需要解决的问题，再开始设计。</p>
+          <div className="button-row">
+            <Link className="button light" to="/diagnosis">开始空间诊断</Link>
+            <Link className="button outline-light" to="/cases">查看真实案例</Link>
+          </div>
+          <p className="hero-note">已整理 {brand.solutionCount} 套不同家庭结构与户型需求的设计方案</p>
+        </div>
+      </section>
+
+      <section className="section">
+        <div className="section-title split">
+          <div>
+            <span className="eyebrow">DIAGNOSIS FIRST</span>
+            <h2>设计之前，先看清问题。</h2>
+          </div>
+          <Link className="text-link" to="/diagnosis">看看我家属于哪一种</Link>
+        </div>
+        <div className="problem-grid home-problems">
+          {["柜子很多，家里还是乱", "儿童房很快就不够用", "餐厅承担了太多功能", "每个房间单独设计，却没有完整收纳系统"].map((item) => (
+            <article key={item}>
+              <strong>{item}</strong>
+              <p>先判断问题发生在动线、成长、功能叠加还是整体收纳路径，再进入设计。</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="section warm">
+        <div className="section-title split">
+          <div>
+            <span className="eyebrow">RECOMMENDED CASES</span>
+            <h2>先看少量相似家庭，理解问题如何被解决。</h2>
+          </div>
+          <Link className="text-link" to="/cases">进入完整案例库</Link>
+        </div>
+        <div className="case-grid home-case-grid">
+          {featured.map((item) => (
+            <article className="case-card home-case-card" key={item.id}>
+              <img src={item.cover} alt={`${item.title}案例`} />
+              <div className="case-card__body">
+                <span className="eyebrow">{item.area}㎡ / {item.familyLabel}</span>
+                <h3>{item.city} · {item.community}</h3>
+                <div className="before-after compact">
+                  <div>
+                    <strong>问题</strong>
+                    <p>{item.needs.join("、")}。</p>
+                  </div>
+                  <div>
+                    <strong>结果</strong>
+                    <p>{item.highlight}</p>
+                  </div>
+                </div>
+                <Link className="text-link" to={`/cases/${item.id}`}>查看这个家庭怎么解决</Link>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="final-cta">
+        <span className="eyebrow">NEXT STEP</span>
+        <h2>先花 2 分钟，看看你家真正需要解决什么。</h2>
+        <Link className="button light" to="/diagnosis">开始诊断</Link>
+      </section>
+    </>
+  );
+}
+
+function DesignerSection() {
+  return (
+    <section className="section warm">
+      <div className="section-title">
+        <span className="eyebrow">DESIGN TEAM</span>
+        <h2>用设计经验，判断什么应该留下。</h2>
+      </div>
+      <div className="designer-grid">
+        {designers.map((designer) => (
+          <article className="designer-card" key={designer.id}>
+            <img src={designer.image} alt={`${designer.name}设计师形象`} loading="lazy" />
+            <div>
+              <h3>{designer.name}</h3>
+              <p>{designer.role} · {designer.years}</p>
+              <p className="muted">擅长：{designer.specialties.join(" / ")}</p>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function DiagnosisPage() {
+  const navigate = useNavigate();
+  const [step, setStep] = useState(1);
+  const [input, setInput] = useState<DiagnosisState>(() => loadDiagnosis());
+  const stepsTotal = 7;
+  const styleImages = [images.calmLiving, images.warmDining, images.study, images.entryway, images.kitchen, images.bedroom];
+
+  useEffect(() => {
+    saveDiagnosis(input);
+  }, [input]);
+
+  const next = () => {
+    if (step < stepsTotal) setStep(step + 1);
+    else {
+      saveDiagnosis(input);
+      navigate("/diagnosis/result");
+    }
+  };
+
+  return (
+    <section className="diagnosis-page">
+      <div className="diagnosis-shell">
+        <div className="diagnosis-progress">
+          <span>{step} / {stepsTotal}</span>
+          <div><i style={{ width: `${(step / stepsTotal) * 100}%` }} /></div>
+        </div>
+
+        {step === 1 && (
+          <WizardStep title="你的家有多大？">
+            <PillPicker options={areaOptions} value={input.areaRange} onChange={(v) => setInput({ ...input, areaRange: v as string })} />
+          </WizardStep>
+        )}
+
+        {step === 2 && (
+          <WizardStep title="现在谁和你一起生活？">
+            <PillPicker
+              multi
+              options={["自己", "伴侣", "一个孩子", "两个及以上孩子", "父母", "宠物"]}
+              value={input.members}
+              onChange={(v) => setInput({ ...input, members: v as string[] })}
+              maxSelections={6}
+            />
+          </WizardStep>
+        )}
+
+        {step === 3 && (
+          <WizardStep title="你家最容易乱在哪里？">
+            <p className="muted">最多选择 3 个重点空间。</p>
+            <PillPicker
+              multi
+              options={["玄关", "客厅", "餐厅", "厨房", "主卧", "儿童房", "阳台", "到处都乱"]}
+              value={input.messySpaces}
+              onChange={(v) => setInput({ ...input, messySpaces: v as string[] })}
+              maxSelections={3}
+            />
+          </WizardStep>
+        )}
+
+        {step === 4 && (
+          <WizardStep title="下面哪些问题最像你家？">
+            <PillPicker
+              multi
+              options={["鞋子没有地方放", "衣服很多", "换季被褥没地方收", "小家电占满餐桌", "孩子玩具到处都是", "没有固定办公区", "清洁用品无处安放", "家里柜子很多但不好用", "东西经常找不到", "空间看起来拥挤"]}
+              value={input.problems}
+              onChange={(v) => setInput({ ...input, problems: v as string[] })}
+              maxSelections={10}
+            />
+          </WizardStep>
+        )}
+
+        {step === 5 && (
+          <WizardStep title="你未来 3–5 年可能发生哪些变化？">
+            <PillPicker
+              multi
+              options={["准备结婚", "准备要孩子", "孩子即将上学", "二胎计划", "父母可能同住", "居家办公增加", "养宠物", "暂时没有明显变化"]}
+              value={input.futureChanges}
+              onChange={(v) => setInput({ ...input, futureChanges: v as string[] })}
+              maxSelections={8}
+            />
+          </WizardStep>
+        )}
+
+        {step === 6 && (
+          <WizardStep title="你更希望家是什么感觉？">
+            <div className="style-grid">
+              {["现代原木", "奶油自然", "现代极简", "中古", "意式现代", "自然松弛"].map((style, index) => (
+                <button className={input.style === style ? "style-card selected" : "style-card"} onClick={() => setInput({ ...input, style })} key={style}>
+                  <img src={styleImages[index]} alt={style} />
+                  <span>{style}</span>
+                </button>
+              ))}
+            </div>
+          </WizardStep>
+        )}
+
+        {step === 7 && (
+          <WizardStep title="你目前最关心什么？">
+            <PillPicker
+              options={["先把空间规划好", "收纳能力", "设计效果", "材料环保", "预算控制", "后期落地效果"]}
+              value={input.priority}
+              onChange={(v) => setInput({ ...input, priority: v as string })}
+            />
+          </WizardStep>
+        )}
+
+        <div className="wizard-actions">
+          {step > 1 && <button className="button ghost" onClick={() => setStep(step - 1)}>上一步</button>}
+          <button className="button dark" onClick={next}>{step === stepsTotal ? "查看诊断结果" : "下一步"}</button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function DiagnosisResultPage() {
+  const [input] = useState<DiagnosisState>(() => loadDiagnosis());
+  const matchInput = useMemo(() => diagnosisToMatchInput(input), [input]);
+  const results = useMemo(() => matchCases(cases, matchInput).slice(0, 3), [matchInput]);
+  const judgements = getDiagnosisJudgements(input);
+  const focusSpaces = Array.from(new Set(input.messySpaces.includes("到处都乱") ? ["玄关", "餐厅", "儿童房", "书房"] : input.messySpaces)).slice(0, 4);
+  const family = getDiagnosisFamily(input);
+  return (
+    <section className="page-section diagnosis-result-page">
+      <header className="diagnosis-result-hero">
+        <span className="eyebrow">空间诊断完成</span>
+        <h1>根据你的选择，你的家庭属于：<br />成长型 · 高收纳需求家庭</h1>
+        <div className="result-tags">
+          {[input.areaRange, `${family}家庭`, ...input.futureChanges.slice(0, 2), `偏好${input.style}`].map((tag) => <span key={tag}>{tag}</span>)}
+        </div>
+      </header>
+
+      <section className="section result-diagnosis">
+        <div className="section-title">
+          <span className="eyebrow">CORE JUDGEMENT</span>
+          <h2>你家真正需要解决的，可能不是“多做柜子”。</h2>
+        </div>
+        <div className="problem-grid">
+          {judgements.map((item, index) => (
+            <article key={item.title}>
+              <span className="eyebrow">0{index + 1}</span>
+              <h3>{item.title}</h3>
+              <p>{item.body}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="section warm">
+        <div className="section-title split">
+          <div>
+            <span className="eyebrow">FOCUS SPACES</span>
+            <h2>你的重点空间</h2>
+          </div>
+          <Link className="text-link" to="/inspiration">查看空间效果</Link>
+        </div>
+        <div className="space-strip result-space-strip">
+          {focusSpaces.map((space) => (
+            <Link to={`/inspiration?category=${space}`} className="focus-space-card" key={space}>
+              <strong>{space}</strong>
+              <p>查看这个空间的解决思路</p>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section className="section">
+        <div className="section-title">
+          <span className="eyebrow">MATCHED CASES</span>
+          <h2>这些家庭，和你的情况很接近。</h2>
+        </div>
+        <div className="case-grid">
+          {results.map((result) => <CaseCard item={result.item} match={result.score} reasons={result.reasons} key={result.item.id} />)}
+        </div>
+      </section>
+
+      <section className="final-cta">
+        <h2>下一步，用案例验证判断，再规划预算范围。</h2>
+        <div className="button-row center">
+          <Link className="button light" to="/cases">查看推荐案例</Link>
+          <Link className="button outline-light" to="/budget">规划我的预算</Link>
+        </div>
+      </section>
+    </section>
+  );
+}
+
+function CasesPage() {
+  const [filters, setFilters] = useState({ area: "全部", family: "全部", style: "全部", need: "全部" });
+  const filtered = cases.filter((item) =>
+    (filters.area === "全部" || item.areaRange === filters.area) &&
+    (filters.family === "全部" || item.familyLabel.includes(filters.family) || item.familyType.includes(filters.family)) &&
+    (filters.style === "全部" || item.style.includes(filters.style)) &&
+    (filters.need === "全部" || item.needs.some((need) => need.includes(filters.need) || filters.need.includes(need)))
+  );
+  return (
+    <section className="page-section">
+      <PageHero eyebrow="CASES" title="全屋案例库" body="不是按风格堆图片，而是按家庭问题理解每一个真实的家。" />
+      <div className="filter-panel">
+        <Filter size={18} />
+        <FilterGroup label="面积" options={["全部", ...areaOptions]} value={filters.area} onChange={(v) => setFilters({ ...filters, area: v })} />
+        <FilterGroup label="家庭" options={["全部", "独居", "新婚", "三口", "二胎", "三代同堂"]} value={filters.family} onChange={(v) => setFilters({ ...filters, family: v })} />
+        <FilterGroup label="风格" options={["全部", "现代原木", "奶油", "极简", "中古", "意式", "法式"]} value={filters.style} onChange={(v) => setFilters({ ...filters, style: v })} />
+        <FilterGroup label="需求" options={["全部", "强收纳", "儿童成长", "居家办公", "宠物", "适老", "社交空间"]} value={filters.need} onChange={(v) => setFilters({ ...filters, need: v })} />
+      </div>
+      <div className="case-grid">
+        {filtered.map((item) => <CaseCard item={item} key={item.id} />)}
+      </div>
+    </section>
+  );
+}
+
+function FilterGroup({ label, options, value, onChange }: { label: string; options: string[]; value: string; onChange: (value: string) => void }) {
+  return (
+    <div className="filter-group">
+      <strong>{label}</strong>
+      <div>
+        {options.map((option) => (
+          <button className={value === option ? "selected" : ""} onClick={() => onChange(option)} key={option}>{option}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CaseDetailPage() {
+  const { id } = useParams();
+  const item = getCase(id);
+  const { openLead } = useLead();
+  const [leadOpen, setLeadOpen] = useState(false);
+  const similar = getSimilarCases(item);
+  return (
+    <article>
+      <section className="detail-hero" style={{ backgroundImage: `linear-gradient(90deg, rgba(23,22,20,.72), rgba(23,22,20,.12)), url(${item.cover})` }}>
+        <div>
+          <span className="eyebrow">{item.city} · {item.community}</span>
+          <h1>{item.title}</h1>
+          <p>{item.area}㎡ · {item.layoutDetail} · {item.familyLabel} · {item.style} · 全屋定制 {item.cabinetArea}㎡</p>
+        </div>
+      </section>
+      <section className="section detail-layout">
+        <div>
+          <span className="eyebrow">OWNER STORY</span>
+          <h2>一个正在进入“上学阶段”的{item.familyLabel}</h2>
+          <p>{item.story}</p>
+        </div>
+        <div className="problem-grid">
+          {item.problems.map((problem) => (
+            <article key={problem.zone}><strong>{problem.zone}</strong><p>{problem.issue}</p></article>
+          ))}
+        </div>
+      </section>
+      <section className="section warm">
+        <div className="section-title">
+          <span className="eyebrow">PLAN</span>
+          <h2>平面规划与定制节点</h2>
+        </div>
+        <div className="plan-grid">
+          <img src={item.planImages.before} alt="原始平面示意" />
+          <img src={item.planImages.after} alt="定制规划示意" />
+        </div>
+      </section>
+      <section className="section">
+        <div className="section-title">
+          <span className="eyebrow">SPACES</span>
+          <h2>分空间浏览</h2>
+        </div>
+        {item.spaces.map((space) => (
+          <div className="space-detail" key={space.name}>
+            <HotspotImage image={space.image} alt={`${item.title}${space.name}`} hotspots={space.hotspots} />
+            <div>
+              <span className="eyebrow">{space.name}</span>
+              <h3>{space.thought}</h3>
+              <ul>{space.details.map((detail) => <li key={detail}>{detail}</li>)}</ul>
+            </div>
+          </div>
+        ))}
+      </section>
+      <section className="section result-summary">
+        <h2>这套方案没有单纯追求柜体数量。</h2>
+        <p>最终重新组织了玄关、餐厅、主卧和儿童房四个核心储物节点，让物品按照使用路径进入最合适的位置。</p>
+        <div className="stat-grid">
+          {["6 个定制区域", `${item.cabinetArea}㎡柜体投影面积`, "4 个核心生活问题解决", "12 个重点功能分区"].map((stat) => <strong key={stat}>{stat}</strong>)}
+        </div>
+      </section>
+      <section className="section warm">
+        <div className="section-title split">
+          <h2>相似案例推荐</h2>
+          <button className="text-link as-button" onClick={openLead}>上传我的户型</button>
+        </div>
+        <div className="case-grid">{similar.map((candidate) => <CaseCard item={candidate} key={candidate.id} />)}</div>
+      </section>
+      <section className="final-cta">
+        <h2>你家的问题，可能和这个案例相似，但解决方法不会完全相同。</h2>
+        <button className="button light" onClick={() => setLeadOpen(true)}>上传我的户型</button>
+      </section>
+      <LeadForm open={leadOpen} onClose={() => setLeadOpen(false)} sourcePage="案例详情" sourceCase={item.title} />
+    </article>
+  );
+}
+
+function WizardStep({ title, children }: { title: string; children: React.ReactNode }) {
+  return <div className="wizard-step"><h2>{title}</h2>{children}</div>;
+}
+
+function InspirationPage() {
+  const [params] = useSearchParams();
+  const [category, setCategory] = useState(params.get("category") || "全部");
+  const items = category === "全部" ? inspirations : inspirations.filter((item) => item.category === category);
+  return (
+    <section className="page-section">
+      <PageHero eyebrow="INSPIRATION" title="空间效果" body="每一张图都绑定一个真实居住问题，而不是普通图片瀑布流。" />
+      <div className="category-tabs">{inspirationCategories.map((item) => <button className={category === item ? "selected" : ""} onClick={() => setCategory(item)} key={item}>{item}</button>)}</div>
+      <div className="inspiration-grid">
+        {items.map((item) => (
+          <Link className="inspiration-card" to={`/inspiration/${item.id}`} key={item.id}>
+            <img src={item.image} alt={item.question} />
+            <span>{item.category}</span>
+            <h3>{item.question}</h3>
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function InspirationDetailPage() {
+  const { id } = useParams();
+  const item = getInspiration(id);
+  return (
+    <section className="page-section">
+      <div className="article-detail">
+        <img src={item.image} alt={item.question} />
+        <div>
+          <span className="eyebrow">{item.category}</span>
+          <h1>{item.question}</h1>
+          <h3>设计方案</h3>
+          <p>{item.solution}</p>
+          <h3>尺寸逻辑</h3>
+          <p>{item.dimension}</p>
+          <h3>适用家庭</h3>
+          <p>{item.families.join(" / ")}</p>
+          <h3>关联案例</h3>
+          <div className="link-list">{item.relatedCaseIds.map((caseId) => <Link to={`/cases/${caseId}`} key={caseId}>{getCase(caseId).title}<ChevronRight size={16} /></Link>)}</div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function LifestylePage() {
+  const questions: [string, string[]][] = [
+    ["回家以后，你最容易随手放下什么？", ["包", "钥匙", "快递", "外套", "都有"]],
+    ["你的鞋大概有多少？", ["20 双以内", "20–40 双", "40–60 双", "60 双以上"]],
+    ["餐厅除了吃饭，还承担什么功能？", ["小家电", "咖啡", "饮水", "孩子学习", "临时办公"]],
+    ["你是否经常居家办公？", ["经常", "偶尔", "很少"]],
+    ["家庭中是否有正在成长的孩子？", ["有", "暂时没有", "未来可能有"]],
+    ["是否有宠物？", ["有猫", "有狗", "没有"]],
+    ["最无法接受的家庭状态是什么？", ["台面杂乱", "东西找不到", "柜子不够用", "空间压抑", "风格不统一"]]
+  ];
+  const [index, setIndex] = useState(0);
+  const [answers, setAnswers] = useState<string[]>([]);
+  const done = index >= questions.length;
+  return (
+    <section className="page-section narrow">
+      <PageHero eyebrow="LIFESTYLE QUIZ" title="生活方式测试" body="先理解日常，再谈柜子应该放什么。" />
+      {!done ? (
+        <div className="quiz-card">
+          <div className="progress">{index + 1} / {questions.length}</div>
+          <h2>{questions[index][0]}</h2>
+          <PillPicker options={questions[index][1]} value={answers[index] || ""} onChange={(v) => { const next = [...answers]; next[index] = v as string; setAnswers(next); }} />
+          <div className="wizard-actions">
+            {index > 0 && <button className="button ghost" onClick={() => setIndex(index - 1)}>上一题</button>}
+            <button className="button dark" onClick={() => setIndex(index + 1)}>下一题</button>
+          </div>
+        </div>
+      ) : (
+        <div className="quiz-result">
+          <span className="eyebrow">RESULT</span>
+          <h2>高收纳需求 · 成长型家庭</h2>
+          {["建立玄关回家动线", "把餐厅作为家庭第二储物中心", "儿童房采用成长型家具规划", "提前设计家政用品与清洁设备位置", "减少开放格比例，控制视觉杂乱"].map((item) => <p key={item}><Check size={17} />{item}</p>)}
+          <div className="case-grid">{cases.slice(0, 3).map((item) => <CaseCard item={item} key={item.id} />)}</div>
+          <Link className="button dark" to="/diagnosis">进一步诊断我的户型</Link>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function BudgetPage() {
+  const { openLead } = useLead();
+  const [step, setStep] = useState(1);
+  const [area, setArea] = useState(118);
+  const [spaces, setSpaces] = useState<string[]>(["玄关", "餐厅", "主卧", "儿童房"]);
+  const [level, setLevel] = useState<BudgetLevel>("完整规划");
+  const [material, setMaterial] = useState<MaterialLevel>("设计与品质平衡");
+  const result = estimateBudget(area, spaces, level, material);
+  return (
+    <section className="page-section">
+      <PageHero eyebrow="BUDGET" title="预算不是一个数字，而是一组选择。" body="这里帮助用户建立预算范围，而不是替代实际测量报价。" />
+      <div className="budget-layout stepped-budget">
+        <div className="budget-panel">
+          <div className="progress">Step {step} / 4</div>
+          {step === 1 && (
+            <>
+          <label>房屋面积：{area}㎡</label>
+          <input type="range" min="70" max="200" value={area} onChange={(e) => setArea(Number(e.target.value))} />
+            </>
+          )}
+          {step === 2 && (
+            <>
+          <h3>定制空间</h3>
+          <PillPicker multi options={["玄关", "客厅", "餐厅", "厨房", "主卧", "次卧", "儿童房", "书房", "阳台"]} value={spaces} onChange={(v) => setSpaces(v as string[])} />
+            </>
+          )}
+          {step === 3 && (
+            <>
+          <h3>定制程度</h3>
+          <PillPicker options={["基础收纳", "完整规划", "整体空间"]} value={level} onChange={(v) => setLevel(v as BudgetLevel)} />
+          <h3>材料倾向</h3>
+          <PillPicker options={["实用优先", "设计与品质平衡", "高阶质感"]} value={material} onChange={(v) => setMaterial(v as MaterialLevel)} />
+            </>
+          )}
+          {step === 4 && (
+            <div>
+              <h3>确认你的预算条件</h3>
+              <p>{area}㎡ · {spaces.join("、")} · {level} · {material}</p>
+              <p className="muted">结果是范围判断，用于帮助你判断项目量级。</p>
+            </div>
+          )}
+          <div className="wizard-actions">
+            {step > 1 && <button className="button ghost" onClick={() => setStep(step - 1)}>上一步</button>}
+            {step < 4 && <button className="button dark" onClick={() => setStep(step + 1)}>下一步</button>}
+          </div>
+        </div>
+        <aside className="budget-result">
+          <span className="eyebrow">DEMO RANGE</span>
+          <h2>¥{result.low.toLocaleString()} – ¥{result.high.toLocaleString()}</h2>
+          <p>根据当前选择，你的项目属于：{level}全屋定制需求。</p>
+          <p className="fineprint">当前结果仅用于预算规划演示。实际项目需根据测量尺寸、柜体展开结构、材料、五金和安装条件确认。</p>
+          <div className="impact-list">{["定制范围", "柜体内部结构", "门板与饰面", "功能五金"].map((item) => <span key={item}>{item}</span>)}</div>
+          <button className="button dark" onClick={openLead}>上传户型，进一步了解规划方向</button>
+        </aside>
+      </div>
+    </section>
+  );
+}
+
+function MaterialsPage() {
+  return (
+    <section className="page-section">
+      <PageHero eyebrow="MATERIALS" title="选择材料之前，先理解它将如何被使用。" body="Demo 不虚构检测报告和品牌授权，只解释影响真实使用体验的关键位置。" />
+      <div className="material-grid">{materialCards.map((item) => <article key={item.title}><img src={item.image} alt={item.title} /><h3>{item.title}</h3><p>{item.body}</p></article>)}</div>
+      <section className="section process-section">
+        <h2>安装过程</h2>
+        <div className="process-line">{processSteps.map((step) => <span key={step}>{step}</span>)}</div>
+      </section>
+    </section>
+  );
+}
+
+function AboutPage() {
+  return (
+    <section className="page-section">
+      <PageHero eyebrow="ABOUT" title="设计不是增加，而是判断什么应该留下。" body="叙间关注的不只是柜体本身，而是人在空间中的动作、习惯和关系。" />
+      <section className="section three-columns">
+        {["初步沟通", "上门测量", "需求梳理", "方案设计", "预算确认", "深化生产", "安装交付", "售后服务"].map((step, index) => <article key={step}><span className="eyebrow">0{index + 1}</span><h3>{step}</h3><p>每一步都围绕真实居住动作和落地条件展开。</p></article>)}
+      </section>
+      <DesignerSection />
+      <section className="section final-card">
+        <h2>{contact.studioName}</h2>
+        <p>{contact.demoAddress}</p>
+        <p>正式上线时，门店地址、联系方式、团队资料均从集中配置替换。</p>
+      </section>
+    </section>
+  );
+}
+
+const adminNav = [
+  { label: "数据概览", path: "/admin/dashboard", icon: LayoutDashboard },
+  { label: "客户线索", path: "/admin/leads", icon: UserRound },
+  { label: "跟进任务", path: "/admin/follow-ups", icon: CalendarClock },
+  { label: "案例管理", path: "/admin/cases", icon: BriefcaseBusiness },
+  { label: "内容管理", path: "/admin/content", icon: ClipboardList },
+  { label: "素材库", path: "/admin/assets", icon: FileImage },
+  { label: "系统设置", path: "/admin/settings", icon: Settings }
+];
+
+function getOwner(id: string) {
+  return salesPeople.find((item) => item.id === id) ?? salesPeople[0];
+}
+
+function getLead(id?: string) {
+  return adminLeads.find((lead) => lead.id === id) ?? adminLeads[0];
+}
+
+function getCaseTitle(id?: string) {
+  return cases.find((item) => item.id === id)?.title ?? "未关联案例";
+}
+
+function AdminShell() {
+  return (
+    <section className="admin-page">
+      <aside className="admin-sidebar">
+        <Link className="admin-brand" to="/admin/dashboard">
+          <strong>叙间工作台</strong>
+          <span>XUJIAN CRM</span>
+        </Link>
+        <nav>
+          {adminNav.map((item) => {
+            const Icon = item.icon;
+            return (
+              <NavLink key={item.path} to={item.path}>
+                <Icon size={18} />
+                {item.label}
+              </NavLink>
+            );
+          })}
+        </nav>
+        <div className="admin-account">
+          <span>陈</span>
+          <div>
+            <strong>陈经理</strong>
+            <p>退出登录</p>
+          </div>
+        </div>
+      </aside>
+      <div className="admin-workspace">
+        <header className="admin-topbar">
+          <div>
+            <span className="eyebrow">BUSINESS WORKSPACE</span>
+            <h1>商家工作台</h1>
+          </div>
+          <label className="admin-search">
+            <Search size={18} />
+            <input placeholder="搜索客户姓名、手机号、小区、案例名称" />
+          </label>
+          <div className="admin-actions">
+            <button className="icon-button" aria-label="通知"><Bell size={18} /></button>
+            <button className="button small"><Plus size={16} />快捷新增</button>
+            <span className="avatar">陈</span>
+          </div>
+        </header>
+        <Outlet />
+      </div>
+    </section>
+  );
+}
+
+function AdminDashboardPage() {
+  const highIntent = adminLeads.filter((lead) => lead.intentLevel === "high").slice(0, 4);
+  const todayLeads = adminLeads.slice(0, 5);
+  const todayTasks = followUps.filter((item) => !item.done).slice(0, 5);
+  const recentActivities = activities.slice(0, 8);
+  const hotCases = cases.slice(0, 5);
+  return (
+    <div className="admin-main">
+      <section className="admin-welcome">
+        <div>
+          <span className="eyebrow">TODAY</span>
+          <h2>早上好，陈经理。</h2>
+          <p>今天有 6 条新线索，其中 2 位客户建议优先联系。</p>
+        </div>
+        <Link className="button dark" to="/admin/follow-ups">查看今日待办</Link>
+      </section>
+
+      <div className="admin-stats">
+        {dashboardMetrics.map((item) => (
+          <article key={item.label}>
+            <span>{item.label}</span>
+            <strong>{item.value}</strong>
+            <p>{item.trend}</p>
+          </article>
+        ))}
+      </div>
+
+      <div className="admin-dashboard-grid">
+        <section className="admin-panel">
+          <div className="panel-title">
+            <h2>今日新线索</h2>
+            <Link to="/admin/leads">查看全部</Link>
+          </div>
+          <div className="lead-card-list">
+            {todayLeads.map((lead) => <LeadMiniCard lead={lead} key={lead.id} />)}
+          </div>
+        </section>
+        <section className="admin-panel">
+          <div className="panel-title"><h2>高意向客户</h2><span>{highIntent.length} 位建议优先联系</span></div>
+          {highIntent.map((lead) => (
+            <Link className="priority-lead" to={`/admin/leads/${lead.id}`} key={lead.id}>
+              <strong>{lead.name}</strong>
+              <span>{lead.score} 分 · {intentLabels[lead.intentLevel]}</span>
+              <p>{lead.community} · {lead.budgetRange} · {lead.painPoints.slice(0, 2).join(" / ")}</p>
+            </Link>
+          ))}
+        </section>
+      </div>
+
+      <div className="admin-dashboard-grid">
+        <section className="admin-panel">
+          <div className="panel-title"><h2>销售漏斗</h2><span>Hover 可查看转化率</span></div>
+          <div className="admin-funnel">
+            {funnelSteps.map((step, index) => {
+              const previous = funnelSteps[index - 1]?.value;
+              const rate = previous ? Math.round((step.value / previous) * 100) : 100;
+              return (
+                <div title={`相对上一环节转化率 ${rate}%`} style={{ width: `${100 - index * 10}%` }} key={step.label}>
+                  <span>{step.label}</span>
+                  <strong>{step.value.toLocaleString()}</strong>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+        <section className="admin-panel">
+          <div className="panel-title"><h2>今日待跟进</h2><Link to="/admin/follow-ups">进入任务</Link></div>
+          {todayTasks.map((task) => {
+            const lead = getLead(task.leadId);
+            return (
+              <div className="task-row" key={task.id}>
+                <time>{task.nextFollowUpAt.slice(11)}</time>
+                <div><strong>{lead.name}</strong><p>{task.nextAction}</p></div>
+                <Link to={`/admin/leads/${lead.id}`}>查看客户</Link>
+              </div>
+            );
+          })}
+        </section>
+      </div>
+
+      <div className="admin-dashboard-grid">
+        <section className="admin-panel">
+          <div className="panel-title"><h2>最近客户行为</h2></div>
+          <ActivityTimeline items={recentActivities} compact />
+        </section>
+        <section className="admin-panel">
+          <div className="panel-title"><h2>热门案例</h2><Link to="/admin/cases">案例管理</Link></div>
+          {hotCases.map((item, index) => (
+            <Link className="case-admin-row" to={`/admin/cases/${item.id}`} key={item.id}>
+              <img src={item.cover} alt={item.title} />
+              <div><strong>{item.title}</strong><p>{item.area}㎡ · {item.familyLabel} · 获客 {32 - index * 3}</p></div>
+            </Link>
+          ))}
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function LeadMiniCard({ lead }: { lead: AdminLead }) {
+  return (
+    <Link className="lead-mini-card" to={`/admin/leads/${lead.id}`}>
+      <div>
+        <strong>{lead.name}</strong>
+        <span>{lead.phone}</span>
+      </div>
+      <p>{lead.district} · {lead.community}</p>
+      <p>{lead.area} · {lead.familyMembers.join("+")} · 预算倾向：{lead.budgetRange}</p>
+      <div className="tag-row">
+        {[...lead.painPoints.slice(0, 2), lead.stylePreference].map((tag) => <span key={tag}>{tag}</span>)}
+      </div>
+      <small>来源：{lead.source} · {lead.createdAt.slice(11)}</small>
+    </Link>
+  );
+}
+
+function AdminLeadsPage() {
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState("全部");
+  const [intent, setIntent] = useState("全部");
+  const [source, setSource] = useState("全部");
+  const filtered = adminLeads.filter((lead) => {
+    const haystack = `${lead.name} ${lead.phone} ${lead.community} ${lead.city} ${lead.stylePreference}`;
+    return (
+      haystack.includes(query) &&
+      (status === "全部" || lead.status === status) &&
+      (intent === "全部" || lead.intentLevel === intent) &&
+      (source === "全部" || lead.source === source)
+    );
+  });
+  const counts = {
+    all: adminLeads.length,
+    today: adminLeads.filter((lead) => lead.createdAt.includes("2026-07-08")).length,
+    high: adminLeads.filter((lead) => lead.intentLevel === "high").length,
+    follow: followUps.filter((item) => !item.done).length,
+    measured: adminLeads.filter((lead) => lead.status === "measured").length,
+    proposal: adminLeads.filter((lead) => lead.status === "proposal").length,
+    won: adminLeads.filter((lead) => lead.status === "won").length
+  };
+
+  return (
+    <div className="admin-main">
+      <section className="admin-panel">
+        <div className="lead-tabs">
+          {[
+            ["全部客户", counts.all],
+            ["今日新增", counts.today],
+            ["高意向", counts.high],
+            ["待跟进", counts.follow],
+            ["已量房", counts.measured],
+            ["方案阶段", counts.proposal],
+            ["已成交", counts.won]
+          ].map(([label, count]) => <button key={label}>{label}<strong>{count}</strong></button>)}
+        </div>
+        <div className="lead-filters">
+          <label><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="姓名 / 手机 / 小区" /></label>
+          <select value={status} onChange={(event) => setStatus(event.target.value)}>
+            <option>全部</option>
+            {Object.entries(leadStatusLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}
+          </select>
+          <select value={intent} onChange={(event) => setIntent(event.target.value)}>
+            <option>全部</option>
+            <option value="high">高意向</option>
+            <option value="medium">持续跟进</option>
+            <option value="low">待观察</option>
+          </select>
+          <select value={source} onChange={(event) => setSource(event.target.value)}>
+            <option>全部</option>
+            {Array.from(new Set(adminLeads.map((lead) => lead.source))).map((item) => <option value={item} key={item}>{item}</option>)}
+          </select>
+        </div>
+      </section>
+
+      <section className="admin-panel lead-list-panel">
+        <div className="lead-table-head">
+          <span>客户</span><span>房屋信息</span><span>核心需求</span><span>预算</span><span>意向</span><span>阶段</span><span>负责人</span><span>下次跟进</span>
+        </div>
+        {filtered.map((lead) => (
+          <Link className="lead-table-row" to={`/admin/leads/${lead.id}`} key={lead.id}>
+            <div><strong>{lead.name}</strong><p>{lead.phone}</p></div>
+            <div><strong>{lead.city} · {lead.community}</strong><p>{lead.area} / {lead.layout}</p></div>
+            <div className="tag-row">{lead.painPoints.slice(0, 3).map((tag) => <span key={tag}>{tag}</span>)}</div>
+            <span>{lead.budgetRange}</span>
+            <span className={`intent-pill ${lead.intentLevel}`}>{intentLabels[lead.intentLevel]} · {lead.score}</span>
+            <span>{leadStatusLabels[lead.status]}</span>
+            <span>{getOwner(lead.ownerId).name}</span>
+            <span>{lead.nextFollowUpAt.slice(5)}</span>
+          </Link>
+        ))}
+      </section>
+    </div>
+  );
+}
+
+function AdminLeadDetailPage() {
+  const { id } = useParams();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const lead = getLead(id);
+  const owner = getOwner(lead.ownerId);
+  const leadActivities = activities.filter((item) => item.leadId === lead.id);
+  const leadFollowUps = followUps.filter((item) => item.leadId === lead.id);
+  const recommended = cases
+    .map((item) => ({
+      item,
+      score: (lead.viewedCases.includes(item.id) ? 12 : 0) + (item.style === lead.stylePreference ? 10 : 0) + item.needs.filter((need) => lead.painPoints.join("").includes(need.slice(0, 2))).length * 6
+    }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
+
+  return (
+    <div className="admin-main">
+      <section className="lead-detail-hero admin-panel">
+        <div>
+          <Link className="text-link" to="/admin/leads">返回客户列表</Link>
+          <h2>{lead.name}</h2>
+          <p>{lead.phone} · 微信 {lead.wechat} · {lead.city} · {lead.community}</p>
+          <div className="tag-row">
+            <span className={`intent-pill ${lead.intentLevel}`}>{intentLabels[lead.intentLevel]} · {lead.score} 分</span>
+            <span>{leadStatusLabels[lead.status]}</span>
+            <span>负责人：{owner.name}</span>
+            <span>创建：{lead.createdAt}</span>
+          </div>
+        </div>
+        <div className="lead-actions">
+          {["拨打电话", "复制微信", "添加跟进", "预约量房"].map((item) => <button className="button ghost" key={item}>{item}</button>)}
+          <button className="button dark" onClick={() => setDrawerOpen(true)}>发送案例</button>
+        </div>
+      </section>
+
+      <div className="lead-detail-layout">
+        <main className="lead-detail-main">
+          <section className="admin-panel">
+            <div className="panel-title"><h2>家庭空间画像</h2><span>{lead.diagnosisType}</span></div>
+            <div className="profile-grid">
+              <InfoBlock label="家庭结构" value={lead.familyMembers.join(" + ")} />
+              <InfoBlock label="房屋" value={`${lead.area} · ${lead.layout}`} />
+              <InfoBlock label="未来变化" value={lead.futureChanges.join(" / ")} />
+              <InfoBlock label="风格" value={lead.stylePreference} />
+              <InfoBlock label="最关心" value={lead.mainConcern} />
+              <InfoBlock label="预算" value={lead.budgetRange} />
+            </div>
+            <div className="tag-row roomy">{lead.painPoints.map((point) => <span key={point}>{point}</span>)}</div>
+          </section>
+
+          <section className="admin-panel">
+            <div className="panel-title"><h2>诊断记录</h2><span>完整答题结果</span></div>
+            <div className="diagnosis-record">
+              <InfoBlock label="Q1 房屋面积" value={lead.area} />
+              <InfoBlock label="Q2 家庭成员" value={lead.familyMembers.join("、")} />
+              <InfoBlock label="Q3 最容易乱的位置" value={lead.messySpaces.join("、")} />
+              <InfoBlock label="Q4 当前问题" value={lead.painPoints.join("、")} />
+              <InfoBlock label="Q5 未来变化" value={lead.futureChanges.join("、")} />
+              <InfoBlock label="Q6 风格" value={lead.stylePreference} />
+              <InfoBlock label="Q7 最关心" value={lead.mainConcern} />
+            </div>
+          </section>
+
+          <section className="admin-panel">
+            <div className="panel-title"><h2>客户浏览轨迹</h2><span>销售判断兴趣点</span></div>
+            <ActivityTimeline items={leadActivities} />
+          </section>
+        </main>
+
+        <aside className="lead-detail-side">
+          <section className="admin-panel">
+            <h2>下一步建议</h2>
+            <p>先联系客户确认周末到店时间，并发送 {recommended[0]?.item.title} 案例作为沟通切入。</p>
+            <Link className="button dark wide" to="/admin/follow-ups">创建下次跟进任务</Link>
+          </section>
+
+          <section className="admin-panel">
+            <div className="panel-title"><h2>预算记录</h2><span>自助测算</span></div>
+            <p>{lead.budgetResult.area} · {lead.budgetResult.spaces.join("、")}</p>
+            <p>{lead.budgetResult.level} · {lead.budgetResult.material}</p>
+            <strong className="budget-number">{lead.budgetResult.range}</strong>
+            <p className="fineprint">这是客户自助预算测算结果，不是正式报价。</p>
+          </section>
+
+          <section className="admin-panel">
+            <div className="panel-title"><h2>上传户型图</h2><span>{lead.uploadedPlan.viewed ? "已查看" : "待查看"}</span></div>
+            {lead.uploadedPlan.url ? <img className="plan-preview" src={lead.uploadedPlan.url} alt={lead.uploadedPlan.name} /> : <p>客户暂未上传户型图。</p>}
+            <div className="button-row"><button className="button ghost">点击放大</button><button className="button ghost">下载</button></div>
+          </section>
+
+          <section className="admin-panel">
+            <div className="panel-title"><h2>跟进记录</h2><button className="text-link as-button">新增跟进</button></div>
+            {leadFollowUps.map((item) => (
+              <article className="followup-card" key={item.id}>
+                <strong>{item.createdAt} · {item.method}</strong>
+                <p>{item.content}</p>
+                <p className="muted">{item.customerFeedback}</p>
+                <span>下一步：{item.nextAction}</span>
+              </article>
+            ))}
+          </section>
+        </aside>
+      </div>
+
+      {drawerOpen && (
+        <div className="admin-drawer-backdrop" onClick={() => setDrawerOpen(false)}>
+          <aside className="admin-drawer" onClick={(event) => event.stopPropagation()}>
+            <div className="panel-title"><h2>推荐给{lead.name}</h2><button className="icon-button" onClick={() => setDrawerOpen(false)}>×</button></div>
+            {recommended.map(({ item }) => (
+              <article className="send-case-card" key={item.id}>
+                <img src={item.cover} alt={item.title} />
+                <h3>{item.title} {item.area}㎡</h3>
+                <p>推荐理由：面积相近 / {item.familyLabel} / {item.style} / {item.needs.slice(0, 2).join("、")}</p>
+                <div className="button-row">
+                  <button className="button ghost">复制链接</button>
+                  <button className="button dark">标记已发送</button>
+                </div>
+              </article>
+            ))}
+          </aside>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InfoBlock({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="info-block">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function ActivityTimeline({ items, compact = false }: { items: typeof activities; compact?: boolean }) {
+  return (
+    <div className={compact ? "activity-timeline compact" : "activity-timeline"}>
+      {items.map((item) => (
+        <article key={item.id}>
+          <time>{item.createdAt.slice(11)}</time>
+          <div>
+            <strong>{item.page}</strong>
+            <p>{item.caseId ? `查看案例：${getCaseTitle(item.caseId)}` : item.metadata}{item.duration ? ` · 停留 ${item.duration}` : ""}</p>
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function AdminFollowUpsPage() {
+  return (
+    <div className="admin-main">
+      <AdminPlaceholder title="跟进任务" body="今天、逾期、明天、本周和已完成任务结构已接入 Mock 数据，下一阶段补完成/延期/新增备注交互。" />
+      <section className="admin-panel">
+        {followUps.slice(0, 20).map((item) => {
+          const lead = getLead(item.leadId);
+          return (
+            <div className="task-row" key={item.id}>
+              <time>{item.nextFollowUpAt.slice(5)}</time>
+              <div><strong>{lead.name}</strong><p>{item.nextAction}</p></div>
+              <span className={`intent-pill ${lead.intentLevel}`}>{intentLabels[lead.intentLevel]}</span>
+              <Link to={`/admin/leads/${lead.id}`}>查看客户</Link>
+            </div>
+          );
+        })}
+      </section>
+    </div>
+  );
+}
+
+function AdminCasesPage() {
+  return (
+    <div className="admin-main">
+      <section className="admin-panel">
+        <div className="panel-title"><h2>案例管理</h2><button className="button dark">新建案例</button></div>
+        {cases.map((item, index) => (
+          <Link className="case-management-row" to={`/admin/cases/${item.id}`} key={item.id}>
+            <img src={item.cover} alt={item.title} />
+            <div><strong>{item.title}</strong><p>{item.city} · {item.community} · {item.area}㎡ · {item.familyLabel}</p></div>
+            <span>{item.style}</span>
+            <span>{index % 4 === 0 ? "草稿" : "已发布"}</span>
+            <span>浏览 {1286 - index * 73}</span>
+            <span>获客 {32 - index}</span>
+          </Link>
+        ))}
+      </section>
+    </div>
+  );
+}
+
+function AdminCaseDetailPage() {
+  const { id } = useParams();
+  const item = getCase(id);
+  return (
+    <div className="admin-main">
+      <section className="admin-panel">
+        <Link className="text-link" to="/admin/cases">返回案例管理</Link>
+        <div className="case-edit-hero">
+          <img src={item.cover} alt={item.title} />
+          <div>
+            <span className="eyebrow">CASE EDIT</span>
+            <h2>{item.title}</h2>
+            <p>{item.city} · {item.community} · {item.area}㎡ · {item.layoutDetail} · {item.style}</p>
+            <div className="tag-row">{item.needs.map((need) => <span key={need}>{need}</span>)}</div>
+          </div>
+        </div>
+      </section>
+      <section className="admin-panel">
+        <div className="lead-tabs">
+          {["基础信息", "项目故事", "空间模块", "图片管理", "热点标注", "关联推荐", "数据表现"].map((tab) => <button key={tab}>{tab}</button>)}
+        </div>
+        <div className="profile-grid">
+          <InfoBlock label="案例名称" value={item.title} />
+          <InfoBlock label="家庭结构" value={item.familyLabel} />
+          <InfoBlock label="核心亮点" value={item.highlight} />
+          <InfoBlock label="数据表现" value="浏览 1,286 / 线索 32 / 深度查看 186" />
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function AdminPlaceholder({ title, body }: { title: string; body: string }) {
+  return (
+    <section className="admin-panel">
+      <span className="eyebrow">ADMIN MODULE</span>
+      <h2>{title}</h2>
+      <p>{body}</p>
+    </section>
+  );
+}
+
+function PageHero({ eyebrow, title, body }: { eyebrow: string; title: string; body: string }) {
+  return (
+    <header className="page-hero">
+      <span className="eyebrow">{eyebrow}</span>
+      <h1>{title}</h1>
+      <p>{body}</p>
+    </header>
+  );
+}
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/admin" element={<AdminShell />}>
+        <Route index element={<Navigate to="/admin/dashboard" replace />} />
+        <Route path="dashboard" element={<AdminDashboardPage />} />
+        <Route path="leads" element={<AdminLeadsPage />} />
+        <Route path="leads/:id" element={<AdminLeadDetailPage />} />
+        <Route path="follow-ups" element={<AdminFollowUpsPage />} />
+        <Route path="cases" element={<AdminCasesPage />} />
+        <Route path="cases/:id" element={<AdminCaseDetailPage />} />
+        <Route path="content" element={<AdminPlaceholder title="内容管理" body="首页内容、空间效果、材料工艺、设计师、品牌介绍和常见问题的基础结构已预留。" />} />
+        <Route path="assets" element={<AdminPlaceholder title="素材库" body="案例、空间效果、材料、人物和户型图素材的 Mock 管理入口已预留。" />} />
+        <Route path="settings" element={<AdminPlaceholder title="系统设置" body="品牌设置、联系方式、门店信息、线索设置、预算规则和账号设置集中在这里。" />} />
+      </Route>
+      <Route element={<Layout />}>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/diagnosis" element={<DiagnosisPage />} />
+        <Route path="/diagnosis/result" element={<DiagnosisResultPage />} />
+        <Route path="/find-solution" element={<Navigate to="/diagnosis" replace />} />
+        <Route path="/cases" element={<CasesPage />} />
+        <Route path="/cases/:id" element={<CaseDetailPage />} />
+        <Route path="/inspiration" element={<InspirationPage />} />
+        <Route path="/inspiration/:id" element={<InspirationDetailPage />} />
+        <Route path="/lifestyle" element={<LifestylePage />} />
+        <Route path="/budget" element={<BudgetPage />} />
+        <Route path="/materials" element={<MaterialsPage />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Route>
+    </Routes>
+  );
+}

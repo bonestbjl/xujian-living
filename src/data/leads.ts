@@ -1,0 +1,61 @@
+import type { Lead } from "../types";
+
+export const mockLeads: Lead[] = [
+  {
+    id: "lead-01",
+    name: "王女士",
+    phone: "138****6721",
+    wechat: "wx_demo_01",
+    city: "无锡",
+    community: "万科翡翠东方",
+    area: "128㎡",
+    layout: "三室两厅",
+    familyType: "三口之家",
+    budgetRange: "5–7 万元",
+    preferredStyle: "现代原木",
+    mainNeeds: ["收纳", "儿童成长", "居家办公"],
+    sourcePage: "案例详情",
+    sourceCase: "万科翡翠东方",
+    createdAt: "2026-07-08 09:24",
+    status: "新线索",
+    riskLevel: "高",
+    followUpNote: "浏览旗舰案例，完成预算测算，建议优先沟通玄关和儿童房。"
+  },
+  {
+    id: "lead-02",
+    name: "陈先生",
+    phone: "159****2840",
+    city: "靖江",
+    community: "中洲华庭",
+    area: "142㎡",
+    layout: "四室两厅",
+    familyType: "二胎家庭",
+    budgetRange: "7–10 万元",
+    preferredStyle: "现代简约",
+    mainNeeds: ["儿童成长", "强收纳"],
+    sourcePage: "找方案",
+    sourceCase: "中洲华庭",
+    createdAt: "2026-07-08 10:12",
+    status: "已联系",
+    riskLevel: "高",
+    followUpNote: "匹配流程完成度高，关注两个孩子不同年龄阶段的房间变化。"
+  },
+  {
+    id: "lead-03",
+    name: "周女士",
+    phone: "186****0935",
+    city: "无锡",
+    community: "运河上院",
+    area: "98㎡",
+    layout: "两室两厅",
+    familyType: "独居女性",
+    budgetRange: "4–6 万元",
+    preferredStyle: "奶油极简",
+    mainNeeds: ["衣帽间", "厨房效率"],
+    sourcePage: "生活方式测试",
+    createdAt: "2026-07-08 11:03",
+    status: "方案沟通",
+    riskLevel: "中",
+    followUpNote: "对衣帽间和餐边水吧感兴趣，可发送独居女性案例。"
+  }
+];
