@@ -1,21 +1,42 @@
-const q = "auto=format&fit=crop&w=1600&q=82";
-
 export const images = {
-  hero: `https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?${q}`,
-  calmLiving: `https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?${q}`,
-  warmDining: `https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?${q}`,
-  cabinetDetail: `https://images.unsplash.com/photo-1600585154526-990dced4db0d?${q}`,
-  kitchen: `https://images.unsplash.com/photo-1556912172-45b7abe8b7e1?${q}`,
-  bedroom: `https://images.unsplash.com/photo-1615873968403-89e068629265?${q}`,
-  study: `https://images.unsplash.com/photo-1593476550610-87baa860004a?${q}`,
-  balcony: `https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?${q}`,
-  entryway: `https://images.unsplash.com/photo-1618220179428-22790b461013?${q}`,
-  kids: `https://images.unsplash.com/photo-1631679706909-1844bbd07221?${q}`,
-  materialWood: `https://images.unsplash.com/photo-1519710164239-da123dc03ef4?${q}`,
-  materialStone: `https://images.unsplash.com/photo-1604014237800-1c9102c219da?${q}`,
-  materialHardware: `https://images.unsplash.com/photo-1581539250439-c96689b516dd?${q}`,
-  process: `https://images.unsplash.com/photo-1503387762-592deb58ef4e?${q}`,
-  designerA: `https://images.unsplash.com/photo-1611432579402-7037e3e2c1e4?${q}`,
-  designerB: `https://images.unsplash.com/photo-1598550874175-4d0ef436c909?${q}`,
-  designerC: `https://images.unsplash.com/photo-1607746882042-944635dfe10e?${q}`
+  hero: "/images/home/hero.png",
+
+  diagnosisModernWood: "/images/diagnosis/modern-wood.png",
+  diagnosisCreamNatural: "/images/diagnosis/cream-natural.png",
+  diagnosisModernMinimal: "/images/diagnosis/modern-minimal.png",
+  diagnosisMidCentury: "/images/diagnosis/mid-century.png",
+  diagnosisItalianModern: "/images/diagnosis/italian-modern.png",
+  diagnosisNaturalRelaxed: "/images/diagnosis/natural-relaxed.png",
+
+  case01Cover: "/images/cases/case-01/cover.png",
+  case02Cover: "/images/cases/case-02/cover.png",
+  case03Cover: "/images/cases/case-03/cover.png",
+  case04Cover: "/images/cases/case-04/cover.png",
+  case05Cover: "/images/cases/case-05/cover.png",
+  case06Cover: "/images/cases/case-06/cover.png",
+  case07Cover: "/images/cases/case-07/cover.png",
+  case08Cover: "/images/cases/case-08/cover.png",
+  case09Cover: "/images/cases/case-09/cover.png",
+  case10Cover: "/images/cases/case-10/cover.png",
+  case11Cover: "/images/cases/case-11/cover.png",
+  case12Cover: "/images/cases/case-12/cover.png",
+
+  entryway: "/images/inspiration/entryway/cover.png",
+  calmLiving: "/images/inspiration/living-room/cover.png",
+  warmDining: "/images/inspiration/dining-room/cover.png",
+  kitchen: "/images/inspiration/kitchen/cover.png",
+  bedroom: "/images/inspiration/bedroom/cover.png",
+  kids: "/images/inspiration/kids-room/cover.png",
+  study: "/images/inspiration/study/cover.png",
+  balcony: "/images/inspiration/balcony/cover.png",
+
+  materialWood: "/images/materials/board-structure.png",
+  cabinetDetail: "/images/materials/finish-texture.png",
+  materialStone: "/images/materials/edge-banding.png",
+  materialHardware: "/images/materials/hardware-system.png",
+  process: "/images/materials/hardware-system.png",
+
+  designerA: "/images/designers/lin-yu.png",
+  designerB: "/images/designers/zhou-qiao.png",
+  designerC: "/images/designers/chen-fang.png"
 };

@@ -211,7 +211,14 @@ function DiagnosisPage() {
   const [step, setStep] = useState(1);
   const [input, setInput] = useState<DiagnosisState>(() => loadDiagnosis());
   const stepsTotal = 8;
-  const styleImages = [images.calmLiving, images.warmDining, images.study, images.entryway, images.kitchen, images.bedroom];
+  const styleImages = [
+    images.diagnosisModernWood,
+    images.diagnosisCreamNatural,
+    images.diagnosisModernMinimal,
+    images.diagnosisMidCentury,
+    images.diagnosisItalianModern,
+    images.diagnosisNaturalRelaxed
+  ];
 
   useEffect(() => {
     saveDiagnosis(input);
@@ -344,8 +351,17 @@ function DiagnosisResultPage() {
   const judgements = getDiagnosisJudgements(input);
   const focusSpaces = Array.from(new Set(input.messySpaces.includes("到处都乱") ? ["玄关", "餐厅", "儿童房", "书房"] : input.messySpaces)).slice(0, 4);
   const family = getDiagnosisFamily(input);
+  const styleImage =
+    {
+      现代原木: images.diagnosisModernWood,
+      奶油自然: images.diagnosisCreamNatural,
+      现代极简: images.diagnosisModernMinimal,
+      中古: images.diagnosisMidCentury,
+      意式现代: images.diagnosisItalianModern,
+      自然松弛: images.diagnosisNaturalRelaxed
+    }[input.style] ?? images.diagnosisModernWood;
   const moodboard = [
-    { title: input.style, image: images.calmLiving, body: "整体保持温暖、安静和真实居住感。" },
+    { title: input.style, image: styleImage, body: "整体保持温暖、安静和真实居住感。" },
     { title: "重点收纳", image: images.entryway, body: input.storageNeeds.slice(0, 2).join(" / ") || "玄关与餐边柜优先建立归位路径。" },
     { title: "日常场景", image: images.warmDining, body: input.habits.slice(0, 2).join(" / ") || "餐厅和公共区承担更多家庭活动。" }
   ];

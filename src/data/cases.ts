@@ -96,7 +96,7 @@ export const cases: CaseItem[] = [
     style: "现代原木",
     needs: ["强收纳", "儿童成长", "居家办公"],
     highlight: "把分散的储物空间，变成一套完整的家庭收纳系统。",
-    cover: images.calmLiving
+    cover: images.case01Cover
   },
   {
     ...base,
@@ -112,7 +112,7 @@ export const cases: CaseItem[] = [
     style: "奶油极简",
     needs: ["衣帽间", "未来儿童房", "居家办公"],
     highlight: "在有限面积中，同时解决衣帽间、办公和未来儿童房需求。",
-    cover: images.warmDining,
+    cover: images.case02Cover,
     cabinetArea: 31
   },
   {
@@ -130,7 +130,7 @@ export const cases: CaseItem[] = [
     style: "现代简约",
     needs: ["儿童成长", "强收纳", "社交空间"],
     highlight: "两个孩子、两个成长阶段，一套可以持续变化的儿童空间。",
-    cover: images.kids,
+    cover: images.case03Cover,
     cabinetArea: 42
   },
   {
@@ -147,7 +147,7 @@ export const cases: CaseItem[] = [
     style: "现代原木",
     needs: ["小户型收纳", "儿童成长", "厨房效率"],
     highlight: "用玄关和餐边柜补足小户型最容易缺失的高频收纳。",
-    cover: images.entryway,
+    cover: images.case04Cover,
     cabinetArea: 27
   },
   {
@@ -164,7 +164,7 @@ export const cases: CaseItem[] = [
     style: "意式现代",
     needs: ["适老", "强收纳", "社交空间"],
     highlight: "把老人使用便利、孩子活动和公共会客放在同一套秩序里。",
-    cover: images.kitchen,
+    cover: images.case05Cover,
     cabinetArea: 52
   },
   {
@@ -181,7 +181,7 @@ export const cases: CaseItem[] = [
     style: "中古混搭",
     needs: ["宠物", "强收纳", "开放式书房"],
     highlight: "为猫砂、粮食、清洁工具和展示收藏安排各自的位置。",
-    cover: images.balcony,
+    cover: images.case06Cover,
     cabinetArea: 34
   },
   {
@@ -198,7 +198,7 @@ export const cases: CaseItem[] = [
     style: "奶油极简",
     needs: ["衣帽间", "展示收藏", "厨房效率"],
     highlight: "用更温柔的材质和更清晰的收纳比例，承接独居生活的仪式感。",
-    cover: images.bedroom,
+    cover: images.case07Cover,
     fullDetail: false
   },
   {
@@ -216,7 +216,7 @@ export const cases: CaseItem[] = [
     style: "现代极简",
     needs: ["居家办公", "强收纳", "空间显大"],
     highlight: "把书房从临时桌面升级为真正能长期工作的家庭工作区。",
-    cover: images.study,
+    cover: images.case08Cover,
     fullDetail: false
   },
   {
@@ -233,7 +233,7 @@ export const cases: CaseItem[] = [
     style: "现代简约",
     needs: ["门墙柜一体", "儿童成长", "强收纳"],
     highlight: "用门墙柜一体化降低大面积柜体存在感。",
-    cover: images.cabinetDetail,
+    cover: images.case09Cover,
     fullDetail: false
   },
   {
@@ -251,7 +251,7 @@ export const cases: CaseItem[] = [
     style: "现代原木",
     needs: ["多功能空间", "厨房效率", "强收纳"],
     highlight: "让客餐厅、书桌和储物在小户型里互不打架。",
-    cover: images.warmDining,
+    cover: images.case10Cover,
     fullDetail: false
   },
   {
@@ -268,7 +268,7 @@ export const cases: CaseItem[] = [
     style: "现代自然",
     needs: ["开放式书房", "儿童成长", "强收纳"],
     highlight: "把书房打开，让陪伴、学习和客厅活动发生在一起。",
-    cover: images.study,
+    cover: images.case11Cover,
     fullDetail: false
   },
   {
@@ -285,7 +285,7 @@ export const cases: CaseItem[] = [
     style: "现代自然",
     needs: ["社交空间", "门墙柜一体", "强收纳"],
     highlight: "改善型住宅不堆满柜体，而是让收纳成为空间秩序的一部分。",
-    cover: images.hero,
+    cover: images.case12Cover,
     fullDetail: false
   }
 ];
