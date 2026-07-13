@@ -2,6 +2,8 @@ import type { Lead } from "../types";
 
 export const mockLeads: Lead[] = [
   {
+    merchantId: "xujian-demo",
+    deviceId: "mock-device-xujian-demo",
     id: "lead-01",
     name: "王女士",
     phone: "138****6721",
@@ -22,6 +24,8 @@ export const mockLeads: Lead[] = [
     followUpNote: "浏览旗舰案例，完成预算测算，建议优先沟通玄关和儿童房。"
   },
   {
+    merchantId: "jingjiang-custom-demo",
+    deviceId: "mock-device-jingjiang-custom-demo",
     id: "lead-02",
     name: "陈先生",
     phone: "159****2840",
@@ -41,6 +45,8 @@ export const mockLeads: Lead[] = [
     followUpNote: "匹配流程完成度高，关注两个孩子不同年龄阶段的房间变化。"
   },
   {
+    merchantId: "wuxi-custom-demo",
+    deviceId: "mock-device-wuxi-custom-demo",
     id: "lead-03",
     name: "周女士",
     phone: "186****0935",

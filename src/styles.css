@@ -142,6 +142,11 @@ p, li {
   color: var(--paper);
 }
 
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .button.light {
   background: var(--paper);
   border-color: var(--paper);
@@ -1036,6 +1041,7 @@ p, li {
   display: flex;
   flex-direction: column;
   gap: 0.7rem;
+  overflow-y: auto;
   padding: 1.2rem;
   position: sticky;
   top: 0;
@@ -1096,6 +1102,37 @@ p, li {
 
 .admin-account p {
   color: rgba(255, 250, 242, 0.58);
+  margin: 0;
+}
+
+.admin-account a {
+  color: rgba(255, 250, 242, 0.68);
+  font-size: 0.78rem;
+}
+
+.admin-plan-card {
+  background: rgba(255, 250, 242, 0.08);
+  border: 1px solid rgba(255, 250, 242, 0.16);
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.6rem;
+  padding: 0.85rem;
+}
+
+.admin-plan-card span {
+  color: rgba(255, 250, 242, 0.68);
+  font-size: 0.76rem;
+}
+
+.admin-plan-card strong {
+  color: var(--paper);
+  font-size: 1.25rem;
+}
+
+.admin-plan-card p {
+  color: rgba(255, 250, 242, 0.62);
+  font-size: 0.76rem;
+  line-height: 1.6;
   margin: 0;
 }
 
@@ -1677,6 +1714,457 @@ p, li {
   padding: 0 0.7rem;
 }
 
+.merchant-settings-card {
+  grid-column: 1 / -1;
+}
+
+.merchant-meta {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.merchant-meta p {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  min-width: 0;
+  padding: 0.8rem;
+}
+
+.merchant-meta strong {
+  overflow-wrap: anywhere;
+}
+
+.merchant-switch-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.merchant-danger-zone {
+  align-items: center;
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-top: 0.35rem;
+  padding-top: 1rem;
+}
+
+.merchant-danger-zone p {
+  color: var(--muted);
+  margin: 0.3rem 0 0;
+}
+
+.button.danger {
+  background: #842e28;
+  color: #fffaf2;
+  flex: 0 0 auto;
+}
+
+.empty-admin-state {
+  max-width: 720px;
+}
+
+.admin-page-heading {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.admin-page-heading h2 {
+  font-size: 2rem;
+  margin-bottom: 0.45rem;
+}
+
+.admin-page-heading p {
+  color: var(--muted);
+  margin: 0;
+}
+
+.service-note {
+  background: var(--ink);
+  color: var(--paper);
+  display: inline-flex;
+  font-size: 0.82rem;
+  padding: 0.55rem 0.7rem;
+  white-space: nowrap;
+}
+
+.service-contact-actions,
+.request-submit-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  justify-content: flex-end;
+}
+
+.quota-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.quota-grid article {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  padding: 1rem;
+}
+
+.quota-grid span,
+.content-recommend-grid span,
+.content-title-list span,
+.script-advice-grid > article > span,
+.influencer-card header span,
+.influencer-detail-grid span {
+  color: var(--muted);
+  display: block;
+  font-size: 0.78rem;
+}
+
+.quota-grid strong {
+  display: block;
+  font-size: 1.7rem;
+  margin: 0.45rem 0;
+}
+
+.quota-grid article:last-child strong {
+  font-size: 1.12rem;
+}
+
+.quota-grid p {
+  color: var(--muted);
+  font-size: 0.82rem;
+  margin: 0;
+}
+
+.case-request-grid {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.case-request-card {
+  border: 1px solid var(--line);
+  min-width: 0;
+}
+
+.case-request-card.selected {
+  border-color: var(--wood);
+  box-shadow: inset 0 0 0 1px var(--wood);
+}
+
+.case-request-card img {
+  aspect-ratio: 16 / 10;
+  width: 100%;
+}
+
+.case-request-card > div {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.8rem;
+}
+
+.case-request-card p {
+  color: var(--muted);
+  margin: 0;
+}
+
+.case-request-card .button {
+  justify-self: start;
+}
+
+.case-request-form {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.case-request-form label,
+.compact-filter,
+.influencer-status-field,
+.content-title-list label {
+  color: var(--muted);
+  display: grid;
+  font-size: 0.82rem;
+  gap: 0.35rem;
+}
+
+.case-request-form input,
+.case-request-form select,
+.case-request-form textarea,
+.compact-filter select,
+.influencer-status-field select,
+.content-title-list select {
+  background: #fffaf2;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font: inherit;
+  min-height: 42px;
+  padding: 0.62rem 0.7rem;
+  width: 100%;
+}
+
+.case-request-form textarea {
+  resize: vertical;
+}
+
+.case-request-form .span-two {
+  grid-column: 1 / -1;
+}
+
+.material-upload {
+  background: #f7f2ea;
+  border: 1px dashed var(--wood);
+  padding: 0.9rem;
+}
+
+.material-upload span {
+  color: var(--muted);
+}
+
+.request-submit-row {
+  border-top: 1px solid var(--line);
+  justify-content: space-between;
+  margin-top: 1rem;
+  padding-top: 1rem;
+}
+
+.request-submit-row p {
+  color: var(--muted);
+  margin: 0;
+}
+
+.request-history-list {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.request-history-item {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 0.85rem;
+  padding-top: 0.9rem;
+}
+
+.request-history-main {
+  align-items: start;
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: auto 1fr;
+}
+
+.request-history-main p {
+  color: var(--muted);
+  margin: 0.3rem 0 0;
+}
+
+.request-history-item dl {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+}
+
+.request-history-item dl div {
+  background: #f7f2ea;
+  padding: 0.7rem;
+}
+
+.request-history-item dt {
+  color: var(--muted);
+  font-size: 0.76rem;
+  margin-bottom: 0.3rem;
+}
+
+.request-history-item dd {
+  margin: 0;
+}
+
+.status-pill {
+  background: var(--warm);
+  display: inline-flex;
+  font-size: 0.78rem;
+  padding: 0.32rem 0.5rem;
+  width: max-content;
+}
+
+.status-pill[data-status="已完成"],
+.status-pill[data-status="已发布"],
+.status-pill[data-status="已复盘"] {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.status-pill[data-status="客服处理中"],
+.status-pill[data-status="待客户确认"],
+.status-pill[data-status="待发布"] {
+  background: #d9c7ad;
+}
+
+.content-recommend-grid,
+.script-advice-grid,
+.influencer-card-grid {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.content-recommend-grid article {
+  background: var(--ink);
+  color: var(--paper);
+  min-width: 0;
+  padding: 1rem;
+}
+
+.content-recommend-grid article span {
+  color: rgba(255, 250, 242, 0.62);
+}
+
+.content-recommend-grid h3 {
+  margin: 0.55rem 0;
+}
+
+.content-recommend-grid p {
+  color: rgba(255, 250, 242, 0.72);
+}
+
+.content-filter-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.9rem;
+}
+
+.content-filter-tabs button {
+  background: transparent;
+  border: 1px solid var(--line);
+  cursor: pointer;
+  padding: 0.55rem 0.7rem;
+}
+
+.content-filter-tabs button.selected {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.content-title-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.content-title-list article {
+  align-items: center;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr 150px;
+  padding-top: 0.8rem;
+}
+
+.content-title-list h3,
+.content-title-list p {
+  margin: 0.3rem 0 0;
+}
+
+.content-title-list p {
+  color: var(--muted);
+}
+
+.weekly-content-plan {
+  display: grid;
+}
+
+.weekly-content-plan article {
+  align-items: center;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: 72px 1fr auto;
+  padding: 0.75rem 0;
+}
+
+.weekly-content-plan time {
+  color: var(--wood);
+  font-weight: 800;
+}
+
+.weekly-content-plan p {
+  color: var(--muted);
+  margin: 0.25rem 0 0;
+}
+
+.script-advice-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.script-advice-grid article {
+  background: #f7f2ea;
+  border: 1px solid var(--line);
+  min-width: 0;
+  padding: 1rem;
+}
+
+.script-advice-grid p {
+  margin-bottom: 0.55rem;
+}
+
+.influencer-card-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.influencer-card {
+  min-width: 0;
+}
+
+.influencer-card header {
+  align-items: start;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.influencer-card header h3 {
+  font-size: 1.35rem;
+  margin: 0.35rem 0 0;
+}
+
+.influencer-card header > strong {
+  white-space: nowrap;
+}
+
+.influencer-detail-grid {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 1rem 0;
+}
+
+.influencer-detail-grid p {
+  background: #f7f2ea;
+  display: grid;
+  gap: 0.3rem;
+  margin: 0;
+  min-width: 0;
+  padding: 0.7rem;
+}
+
+.influencer-detail-grid strong {
+  overflow-wrap: anywhere;
+}
+
+.influencer-notes {
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  margin: 0.9rem 0 0;
+  padding-top: 0.8rem;
+}
+
 .funnel {
   background: var(--paper);
   border: 1px solid var(--line);
@@ -1923,7 +2411,12 @@ blockquote {
 
   .admin-stats,
   .admin-dashboard-grid,
-  .lead-detail-layout {
+  .lead-detail-layout,
+  .quota-grid,
+  .case-request-grid,
+  .content-recommend-grid,
+  .script-advice-grid,
+  .influencer-card-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1942,7 +2435,9 @@ blockquote {
   .lead-filters,
   .profile-grid,
   .diagnosis-record,
-  .settings-grid {
+  .settings-grid,
+  .merchant-meta,
+  .request-history-item dl {
     grid-template-columns: 1fr;
   }
 }
@@ -1953,8 +2448,10 @@ blockquote {
   }
 
   .admin-welcome,
-  .lead-detail-hero {
+  .lead-detail-hero,
+  .admin-page-heading {
     align-items: start;
+    display: grid;
     grid-template-columns: 1fr;
   }
 
@@ -1969,6 +2466,37 @@ blockquote {
   }
 
   .admin-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .merchant-danger-zone {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-plan-card {
+    min-width: 260px;
+  }
+
+  .service-contact-actions,
+  .request-submit-row {
+    align-items: stretch;
+    display: grid;
+    justify-content: stretch;
+  }
+
+  .case-request-form,
+  .influencer-detail-grid,
+  .content-title-list article,
+  .weekly-content-plan article {
+    grid-template-columns: 1fr;
+  }
+
+  .case-request-form .span-two {
+    grid-column: auto;
+  }
+
+  .request-history-main {
     grid-template-columns: 1fr;
   }
 }

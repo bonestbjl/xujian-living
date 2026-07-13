@@ -10,6 +10,8 @@ export interface SalesPerson {
 }
 
 export interface AdminLead {
+  merchantId: string;
+  deviceId: string;
   id: string;
   name: string;
   phone: string;
@@ -40,6 +42,7 @@ export interface AdminLead {
   ownerId: string;
   source: string;
   createdAt: string;
+  updatedAt: string;
   lastActivityAt: string;
   nextFollowUpAt: string;
   uploadedPlan: {
@@ -52,6 +55,8 @@ export interface AdminLead {
 }
 
 export interface Activity {
+  merchantId: string;
+  deviceId: string;
   id: string;
   leadId: string;
   type: "page_view" | "diagnosis_start" | "diagnosis_complete" | "case_view" | "budget_complete" | "plan_upload" | "lead_submit" | "case_sent";
@@ -63,6 +68,7 @@ export interface Activity {
 }
 
 export interface FollowUp {
+  merchantId: string;
   id: string;
   leadId: string;
   ownerId: string;
@@ -94,6 +100,7 @@ const needSets = [
   ["家里柜子很多但不好用", "东西经常找不到", "空间看起来拥挤"],
   ["父母可能同住", "厨房效率低", "清洁用品无处安放"]
 ];
+const demoMerchantIds = ["xujian-demo", "wuxi-custom-demo", "jingjiang-custom-demo"];
 
 function scoreLead(index: number, status: string, viewedCases: string[], hasPlan: boolean) {
   let score = leadScoringRules.phoneSubmitted + leadScoringRules.diagnosisCompleted;
@@ -119,7 +126,10 @@ export const adminLeads: AdminLead[] = Array.from({ length: 30 }, (_, index) => 
   const needs = needSets[index % needSets.length];
   const day = String(8 - Math.floor(index / 8)).padStart(2, "0");
   const hour = String(9 + (index % 9)).padStart(2, "0");
+  const merchantId = demoMerchantIds[index % demoMerchantIds.length];
   return {
+    merchantId,
+    deviceId: `mock-device-${merchantId}`,
     id: `lead-${String(index + 1).padStart(2, "0")}`,
     name: names[index % names.length],
     phone: `${["138", "159", "186", "137", "177"][index % 5]}****${String(3200 + index * 137).slice(-4)}`,
@@ -150,6 +160,7 @@ export const adminLeads: AdminLead[] = Array.from({ length: 30 }, (_, index) => 
     ownerId: owner.id,
     source: sources[index % sources.length],
     createdAt: `2026-07-${day} ${hour}:${String(10 + index).padStart(2, "0")}`,
+    updatedAt: `2026-07-08 ${String(10 + (index % 8)).padStart(2, "0")}:${String(20 + index).slice(-2)}`,
     lastActivityAt: `2026-07-08 ${String(10 + (index % 8)).padStart(2, "0")}:${String(20 + index).slice(-2)}`,
     nextFollowUpAt: `2026-07-${String(8 + (index % 5)).padStart(2, "0")} ${String(14 + (index % 4)).padStart(2, "0")}:00`,
     uploadedPlan: {
@@ -165,12 +176,12 @@ export const adminLeads: AdminLead[] = Array.from({ length: 30 }, (_, index) => 
 export const activities: Activity[] = adminLeads.flatMap((lead, index) => {
   const base = `2026-07-08 ${String(9 + (index % 8)).padStart(2, "0")}`;
   return [
-    { id: `act-${lead.id}-01`, leadId: lead.id, type: "page_view", page: "首页", metadata: "进入首页", createdAt: `${base}:21` },
-    { id: `act-${lead.id}-02`, leadId: lead.id, type: "diagnosis_start", page: "空间诊断", metadata: "开始空间诊断", createdAt: `${base}:23` },
-    { id: `act-${lead.id}-03`, leadId: lead.id, type: "diagnosis_complete", page: "诊断结果", metadata: lead.diagnosisType, createdAt: `${base}:26` },
-    { id: `act-${lead.id}-04`, leadId: lead.id, type: "case_view", page: "案例详情", caseId: lead.viewedCases[0], duration: "4 分 32 秒", metadata: "查看推荐案例", createdAt: `${base}:29` },
-    { id: `act-${lead.id}-05`, leadId: lead.id, type: "budget_complete", page: "预算规划", metadata: lead.budgetResult.range, createdAt: `${base}:41` },
-    { id: `act-${lead.id}-06`, leadId: lead.id, type: "lead_submit", page: "线索表单", metadata: "提交联系方式", createdAt: `${base}:45` }
+    { merchantId: lead.merchantId, deviceId: lead.deviceId, id: `act-${lead.id}-01`, leadId: lead.id, type: "page_view", page: "首页", metadata: "进入首页", createdAt: `${base}:21` },
+    { merchantId: lead.merchantId, deviceId: lead.deviceId, id: `act-${lead.id}-02`, leadId: lead.id, type: "diagnosis_start", page: "空间诊断", metadata: "开始空间诊断", createdAt: `${base}:23` },
+    { merchantId: lead.merchantId, deviceId: lead.deviceId, id: `act-${lead.id}-03`, leadId: lead.id, type: "diagnosis_complete", page: "诊断结果", metadata: lead.diagnosisType, createdAt: `${base}:26` },
+    { merchantId: lead.merchantId, deviceId: lead.deviceId, id: `act-${lead.id}-04`, leadId: lead.id, type: "case_view", page: "案例详情", caseId: lead.viewedCases[0], duration: "4 分 32 秒", metadata: "查看推荐案例", createdAt: `${base}:29` },
+    { merchantId: lead.merchantId, deviceId: lead.deviceId, id: `act-${lead.id}-05`, leadId: lead.id, type: "budget_complete", page: "预算规划", metadata: lead.budgetResult.range, createdAt: `${base}:41` },
+    { merchantId: lead.merchantId, deviceId: lead.deviceId, id: `act-${lead.id}-06`, leadId: lead.id, type: "lead_submit", page: "线索表单", metadata: "提交联系方式", createdAt: `${base}:45` }
   ] as Activity[];
 });
 
@@ -178,6 +189,7 @@ export const followUps: FollowUp[] = adminLeads.flatMap((lead, index) => {
   const owner = salesPeople.find((item) => item.id === lead.ownerId) ?? salesPeople[0];
   return [
     {
+      merchantId: lead.merchantId,
       id: `fu-${lead.id}-01`,
       leadId: lead.id,
       ownerId: owner.id,
@@ -190,6 +202,7 @@ export const followUps: FollowUp[] = adminLeads.flatMap((lead, index) => {
       done: index % 5 === 0
     },
     {
+      merchantId: lead.merchantId,
       id: `fu-${lead.id}-02`,
       leadId: lead.id,
       ownerId: owner.id,

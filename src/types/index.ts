@@ -62,6 +62,8 @@ export interface Designer {
 }
 
 export interface Lead {
+  merchantId: string;
+  deviceId: string;
   id: string;
   name: string;
   phone: string;
@@ -80,4 +82,73 @@ export interface Lead {
   status: string;
   riskLevel: "高" | "中" | "低";
   followUpNote: string;
+}
+
+export interface LeadRecord {
+  merchantId: string;
+  deviceId: string;
+  id: string;
+  name: string;
+  phone: string;
+  wechat: string;
+  city: string;
+  community: string;
+  area: string;
+  layout: string;
+  familyMembers: string[];
+  painPoints: string[];
+  stylePreference: string;
+  budgetRange: string;
+  diagnosisType: string;
+  source: string;
+  sourceCase?: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DiagnosisRecord {
+  merchantId: string;
+  deviceId: string;
+  answers: Record<string, unknown>;
+  resultType: string;
+  recommendedCases: string[];
+  createdAt: string;
+}
+
+export interface BudgetRecord {
+  merchantId: string;
+  deviceId: string;
+  selectedSpaces: string[];
+  customLevel: string;
+  materialLevel: string;
+  resultRange: string;
+  area: number;
+  createdAt: string;
+}
+
+export interface ActivityRecord {
+  merchantId: string;
+  deviceId: string;
+  id: string;
+  leadId?: string;
+  type: "page_view" | "diagnosis_start" | "diagnosis_complete" | "case_view" | "budget_complete" | "plan_upload" | "lead_submit" | "case_sent";
+  page: string;
+  caseId?: string;
+  metadata: Record<string, unknown> | string;
+  createdAt: string;
+}
+
+export interface FollowUpRecord {
+  merchantId: string;
+  id: string;
+  leadId: string;
+  ownerId: string;
+  method: string;
+  content: string;
+  nextAction: string;
+  nextFollowUpAt: string;
+  createdAt: string;
+  customerFeedback?: string;
+  done?: boolean;
 }

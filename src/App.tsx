@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, NavLink, Outlet, Route, Routes, useNavigate, useOutletContext, useParams, useSearchParams } from "react-router-dom";
-import { Bell, BriefcaseBusiness, CalendarClock, Check, ChevronRight, Filter, LayoutDashboard, Plus, Search, Settings, UserRound } from "lucide-react";
+import { Bell, CalendarClock, Check, ChevronRight, FilePenLine, Filter, Handshake, LayoutDashboard, Lightbulb, Plus, Search, Settings, UserRound } from "lucide-react";
 import { Layout } from "./components/Layout";
 import { CaseCard } from "./components/CaseCard";
 import { HotspotImage } from "./components/HotspotImage";
@@ -13,15 +13,26 @@ import { images } from "./data/images";
 import { inspirationCategories, inspirations, getInspiration } from "./data/inspiration";
 import { materialCards, processSteps } from "./data/materials";
 import { estimateBudget, type BudgetLevel, type MaterialLevel } from "./data/budgetRules";
-import { activities, dashboardMetrics, funnelSteps, salesPeople, type AdminLead, type FollowUp } from "./data/admin";
+import { salesPeople, type Activity, type AdminLead, type FollowUp } from "./data/admin";
 import { loadAdminDemoData, resetAdminDemoData, saveAdminDemoData } from "./data/demoStore";
+import { saveActivity, saveBudgetRecord, saveDiagnosisDraft, saveDiagnosisRecord, loadDiagnosisDraft, saveFollowUpRecord } from "./data/localRecords";
 import { matchCases, type MatchInput } from "./utils/match";
 import { intentLabels, leadStatusLabels } from "./config/leadScoring";
+import { getCurrentMerchant, merchants, setCurrentMerchantId } from "./config/merchant";
+import { getOrCreateDeviceId } from "./utils/device";
+import { clearCurrentDeviceScopedData } from "./utils/storage";
+import {
+  type CaseChangeRequest,
+  type CaseChangeType,
+  type ContentPlanItem,
+  type ContentStatus,
+  type InfluencerCollaboration,
+  type InfluencerStatus
+} from "./data/advancedAdmin";
 
 type OutletTools = { openLead: () => void };
 
 const areaOptions = ["80㎡以下", "80–100㎡", "100–120㎡", "120–150㎡", "150㎡以上"];
-const diagnosisKey = "xujian-diagnosis";
 
 interface DiagnosisState {
   layout: string;
@@ -52,16 +63,11 @@ const defaultDiagnosis: DiagnosisState = {
 };
 
 function loadDiagnosis(): DiagnosisState {
-  try {
-    const raw = localStorage.getItem(diagnosisKey);
-    return raw ? { ...defaultDiagnosis, ...JSON.parse(raw) } : defaultDiagnosis;
-  } catch {
-    return defaultDiagnosis;
-  }
+  return { ...defaultDiagnosis, ...loadDiagnosisDraft<Partial<DiagnosisState>>({}) };
 }
 
 function saveDiagnosis(input: DiagnosisState) {
-  localStorage.setItem(diagnosisKey, JSON.stringify(input));
+  saveDiagnosisDraft(input);
 }
 
 function getDiagnosisFamily(input: DiagnosisState) {
@@ -229,6 +235,14 @@ function DiagnosisPage() {
     if (step < stepsTotal) setStep(step + 1);
     else {
       saveDiagnosis(input);
+      const recommendedCases = matchCases(cases, diagnosisToMatchInput(input)).slice(0, 3).map(({ item }) => item.id);
+      const resultType = "成长型 · 高收纳需求家庭";
+      saveDiagnosisRecord({ ...input }, resultType, recommendedCases);
+      saveActivity({
+        type: "diagnosis_complete",
+        page: "诊断结果",
+        metadata: { resultType, recommendedCases }
+      });
       navigate("/diagnosis/result");
     }
   };
@@ -518,6 +532,9 @@ function CaseDetailPage() {
   const { openLead } = useLead();
   const [leadOpen, setLeadOpen] = useState(false);
   const similar = getSimilarCases(item);
+  useEffect(() => {
+    saveActivity({ type: "case_view", page: "案例详情", caseId: item.id, metadata: { title: item.title } });
+  }, [item.id, item.title]);
   return (
     <article>
       <section className="detail-hero" style={{ backgroundImage: `linear-gradient(90deg, rgba(23,22,20,.72), rgba(23,22,20,.12)), url(${item.cover})` }}>
@@ -684,6 +701,12 @@ function BudgetPage() {
   const [level, setLevel] = useState<BudgetLevel>("完整规划");
   const [material, setMaterial] = useState<MaterialLevel>("设计与品质平衡");
   const result = estimateBudget(area, spaces, level, material);
+  const completeBudget = () => {
+    const resultRange = `¥${result.low.toLocaleString()}–¥${result.high.toLocaleString()}`;
+    saveBudgetRecord({ area, selectedSpaces: spaces, customLevel: level, materialLevel: material, resultRange });
+    saveActivity({ type: "budget_complete", page: "预算规划", metadata: { resultRange, area } });
+    setStep(4);
+  };
   return (
     <section className="page-section">
       <PageHero eyebrow="BUDGET" title="预算不是一个数字，而是一组选择。" body="这里帮助用户建立预算范围，而不是替代实际测量报价。" />
@@ -719,7 +742,7 @@ function BudgetPage() {
           )}
           <div className="wizard-actions">
             {step > 1 && <button className="button ghost" onClick={() => setStep(step - 1)}>上一步</button>}
-            {step < 4 && <button className="button dark" onClick={() => setStep(step + 1)}>下一步</button>}
+            {step < 4 && <button className="button dark" onClick={() => step === 3 ? completeBudget() : setStep(step + 1)}>下一步</button>}
           </div>
         </div>
         <aside className="budget-result">
@@ -769,16 +792,32 @@ const adminNav = [
   { label: "数据概览", path: "/admin/dashboard", icon: LayoutDashboard },
   { label: "客户线索", path: "/admin/leads", icon: UserRound },
   { label: "跟进任务", path: "/admin/follow-ups", icon: CalendarClock },
-  { label: "案例管理", path: "/admin/cases", icon: BriefcaseBusiness },
+  { label: "内容中心", path: "/admin/content", icon: Lightbulb },
+  { label: "达人合作", path: "/admin/influencers", icon: Handshake },
+  { label: "案例更新申请", path: "/admin/case-requests", icon: FilePenLine },
   { label: "系统设置", path: "/admin/settings", icon: Settings }
 ];
+
+function getMonthKey(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function getNextMonthStart(date = new Date()) {
+  const nextMonth = new Date(date.getFullYear(), date.getMonth() + 1, 1);
+  return `${nextMonth.getFullYear()} 年 ${nextMonth.getMonth() + 1} 月 1 日`;
+}
+
+function formatAdminDate(date = new Date()) {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
 
 function getOwner(id: string) {
   return salesPeople.find((item) => item.id === id) ?? salesPeople[0];
 }
 
 function getLead(id: string | undefined, leads: AdminLead[]) {
-  return leads.find((lead) => lead.id === id) ?? leads[0];
+  return leads.find((lead) => lead.id === id);
 }
 
 function getCaseTitle(id?: string) {
@@ -788,9 +827,17 @@ function getCaseTitle(id?: string) {
 type AdminDemoTools = {
   leads: AdminLead[];
   followUps: FollowUp[];
+  activities: Activity[];
+  caseRequests: CaseChangeRequest[];
+  contentItems: ContentPlanItem[];
+  influencerCollabs: InfluencerCollaboration[];
   updateLead: (id: string, changes: Partial<AdminLead>) => void;
-  addFollowUp: (entry: Omit<FollowUp, "id" | "createdAt" | "ownerId" | "done">) => void;
+  addFollowUp: (entry: Omit<FollowUp, "merchantId" | "id" | "createdAt" | "ownerId" | "done">) => void;
+  addCaseRequest: (entry: Omit<CaseChangeRequest, "id" | "merchantId" | "status" | "serviceNote" | "quotaMonth" | "createdAt" | "completedAt">) => void;
+  updateContentStatus: (id: string, status: ContentStatus) => void;
+  updateInfluencer: (id: string, changes: Partial<InfluencerCollaboration>) => void;
   resetDemoData: () => void;
+  clearCurrentDeviceData: () => void;
 };
 
 function useAdminDemo() {
@@ -799,6 +846,7 @@ function useAdminDemo() {
 
 function AdminShell() {
   const [demoData, setDemoData] = useState(loadAdminDemoData);
+  const merchant = getCurrentMerchant();
 
   useEffect(() => {
     saveAdminDemoData(demoData);
@@ -811,26 +859,61 @@ function AdminShell() {
     }));
   };
 
-  const addFollowUp = (entry: Omit<FollowUp, "id" | "createdAt" | "ownerId" | "done">) => {
+  const addFollowUp = (entry: Omit<FollowUp, "merchantId" | "id" | "createdAt" | "ownerId" | "done">) => {
+    const followUp = saveFollowUpRecord({
+      ...entry,
+      ownerId: "owner-chen",
+      done: false
+    });
     setDemoData((current) => ({
       ...current,
       followUps: [{
-        ...entry,
-        id: `demo-follow-up-${Date.now()}`,
-        ownerId: "owner-chen",
-        createdAt: new Date().toLocaleString("zh-CN", { hour12: false }),
+        ...followUp,
+        customerFeedback: entry.customerFeedback,
         done: false
       }, ...current.followUps]
     }));
   };
 
+  const addCaseRequest: AdminDemoTools["addCaseRequest"] = (entry) => {
+    const request: CaseChangeRequest = {
+      ...entry,
+      id: `case-request-${Date.now()}`,
+      merchantId: merchant.merchantId,
+      status: "已提交",
+      serviceNote: "Bonest 客服将在 1 个工作日内确认素材与排期。",
+      quotaMonth: getMonthKey(),
+      createdAt: formatAdminDate(),
+      completedAt: ""
+    };
+    setDemoData((current) => ({ ...current, caseRequests: [request, ...current.caseRequests] }));
+  };
+
+  const updateContentStatus = (id: string, status: ContentStatus) => {
+    setDemoData((current) => ({
+      ...current,
+      contentItems: current.contentItems.map((item) => item.id === id ? { ...item, status } : item)
+    }));
+  };
+
+  const updateInfluencer = (id: string, changes: Partial<InfluencerCollaboration>) => {
+    setDemoData((current) => ({
+      ...current,
+      influencerCollabs: current.influencerCollabs.map((item) => item.id === id ? { ...item, ...changes } : item)
+    }));
+  };
+
   const resetDemoData = () => setDemoData(resetAdminDemoData());
+  const clearCurrentDeviceData = () => {
+    clearCurrentDeviceScopedData();
+    setDemoData(loadAdminDemoData());
+  };
 
   return (
     <section className="admin-page">
       <aside className="admin-sidebar">
         <Link className="admin-brand" to="/admin/dashboard">
-          <strong>叙间工作台</strong>
+          <strong>{merchant.merchantName}工作台</strong>
           <span>XUJIAN CRM</span>
         </Link>
         <nav>
@@ -844,11 +927,16 @@ function AdminShell() {
             );
           })}
         </nav>
+        <div className="admin-plan-card">
+          <span>当前服务：进阶版</span>
+          <strong>599 元 / 月</strong>
+          <p>线索管理 · 跟进任务 · 内容选题 · 达人合作管理 · 每月 3 次案例修改</p>
+        </div>
         <div className="admin-account">
-          <span>陈</span>
+          <span>演</span>
           <div>
-            <strong>陈经理</strong>
-            <p>退出登录</p>
+            <strong>演示管理员</strong>
+            <Link to="/">返回 Demo 首页</Link>
           </div>
         </div>
         <div className="admin-demo-tools">
@@ -861,44 +949,76 @@ function AdminShell() {
           <div>
             <span className="eyebrow">BUSINESS WORKSPACE</span>
             <h1>商家工作台</h1>
-            <p className="admin-demo-notice">Bonest 演示案例 · 页面与数据均为示例</p>
+            <p className="admin-demo-notice">Bonest 演示案例 · 页面与数据均为示例 · {merchant.merchantName} Demo</p>
           </div>
           <label className="admin-search">
             <Search size={18} />
-            <input placeholder="搜索客户姓名、手机号、小区、案例名称" />
+            <input placeholder="搜索客户姓名、手机号、小区" />
           </label>
           <div className="admin-actions">
             <button className="icon-button" aria-label="通知"><Bell size={18} /></button>
-            <button className="button small"><Plus size={16} />快捷新增</button>
-            <span className="avatar">陈</span>
+            <Link className="button small" to="/admin/case-requests"><Plus size={16} />提交案例申请</Link>
+            <span className="avatar">演</span>
           </div>
         </header>
-        <Outlet context={{ leads: demoData.leads, followUps: demoData.followUps, updateLead, addFollowUp, resetDemoData }} />
+        <Outlet context={{
+          leads: demoData.leads,
+          followUps: demoData.followUps,
+          activities: demoData.activities,
+          caseRequests: demoData.caseRequests,
+          contentItems: demoData.contentItems,
+          influencerCollabs: demoData.influencerCollabs,
+          updateLead,
+          addFollowUp,
+          addCaseRequest,
+          updateContentStatus,
+          updateInfluencer,
+          resetDemoData,
+          clearCurrentDeviceData
+        }} />
       </div>
     </section>
   );
 }
 
 function AdminDashboardPage() {
-  const { leads, followUps } = useAdminDemo();
+  const { leads, followUps, activities } = useAdminDemo();
   const highIntent = leads.filter((lead) => lead.intentLevel === "high").slice(0, 4);
   const todayLeads = leads.slice(0, 5);
   const todayTasks = followUps.filter((item) => !item.done).slice(0, 5);
-  const recentActivities = activities.slice(0, 8);
+  const recentActivities = [...activities].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 8);
   const hotCases = cases.slice(0, 5);
+  const scopedMetrics = [
+    { label: "本商家访问", value: String(activities.filter((item) => ["page_view", "case_view"].includes(item.type)).length), trend: "按当前商家统计" },
+    { label: "线索总数", value: String(leads.length), trend: "含演示与本地提交" },
+    { label: "完成空间诊断", value: String(activities.filter((item) => item.type === "diagnosis_complete").length), trend: "当前商家记录" },
+    { label: "预算测算", value: String(activities.filter((item) => item.type === "budget_complete").length), trend: "当前商家记录" },
+    { label: "预约量房", value: String(leads.filter((lead) => ["appointment", "measured"].includes(lead.status)).length), trend: "当前商家客户" },
+    { label: "成交客户", value: String(leads.filter((lead) => lead.status === "won").length), trend: "当前商家客户" }
+  ];
+  const visitorCount = Math.max(new Set(activities.map((item) => item.deviceId)).size, leads.length);
+  const scopedFunnel = [
+    { label: "访客", value: visitorCount },
+    { label: "诊断", value: activities.filter((item) => item.type === "diagnosis_complete").length },
+    { label: "深度浏览", value: activities.filter((item) => item.type === "case_view").length },
+    { label: "留资", value: leads.length },
+    { label: "量房", value: leads.filter((lead) => ["measured", "proposal", "quotation", "negotiation", "won"].includes(lead.status)).length },
+    { label: "方案", value: leads.filter((lead) => ["proposal", "quotation", "negotiation", "won"].includes(lead.status)).length },
+    { label: "成交", value: leads.filter((lead) => lead.status === "won").length }
+  ];
   return (
     <div className="admin-main">
       <section className="admin-welcome">
         <div>
           <span className="eyebrow">TODAY</span>
-          <h2>早上好，陈经理。</h2>
-          <p>今天有 6 条新线索，其中 2 位客户建议优先联系。</p>
+          <h2>欢迎回来，演示管理员。</h2>
+          <p>当前商家共有 {leads.length} 条线索，其中 {highIntent.length} 位客户建议优先联系。</p>
         </div>
         <Link className="button dark" to="/admin/follow-ups">查看今日待办</Link>
       </section>
 
       <div className="admin-stats">
-        {dashboardMetrics.map((item) => (
+        {scopedMetrics.map((item) => (
           <article key={item.label}>
             <span>{item.label}</span>
             <strong>{item.value}</strong>
@@ -933,8 +1053,8 @@ function AdminDashboardPage() {
         <section className="admin-panel">
           <div className="panel-title"><h2>销售漏斗</h2><span>Hover 可查看转化率</span></div>
           <div className="admin-funnel">
-            {funnelSteps.map((step, index) => {
-              const previous = funnelSteps[index - 1]?.value;
+            {scopedFunnel.map((step, index) => {
+              const previous = scopedFunnel[index - 1]?.value;
               const rate = previous ? Math.round((step.value / previous) * 100) : 100;
               return (
                 <div title={`相对上一环节转化率 ${rate}%`} style={{ width: `${100 - index * 10}%` }} key={step.label}>
@@ -949,6 +1069,7 @@ function AdminDashboardPage() {
           <div className="panel-title"><h2>今日待跟进</h2><Link to="/admin/follow-ups">进入任务</Link></div>
           {todayTasks.map((task) => {
             const lead = getLead(task.leadId, leads);
+            if (!lead) return null;
             return (
               <div className="task-row" key={task.id}>
                 <time>{task.nextFollowUpAt.slice(11)}</time>
@@ -966,11 +1087,11 @@ function AdminDashboardPage() {
           <ActivityTimeline items={recentActivities} compact />
         </section>
         <section className="admin-panel">
-          <div className="panel-title"><h2>热门案例</h2><Link to="/admin/cases">案例管理</Link></div>
-          {hotCases.map((item, index) => (
-            <Link className="case-admin-row" to={`/admin/cases/${item.id}`} key={item.id}>
+          <div className="panel-title"><h2>热门案例</h2><Link to="/admin/case-requests">申请案例更新</Link></div>
+          {hotCases.map((item) => (
+            <Link className="case-admin-row" to={`/admin/case-requests?case=${item.id}`} key={item.id}>
               <img src={item.cover} alt={item.title} />
-              <div><strong>{item.title}</strong><p>{item.area}㎡ · {item.familyLabel} · 获客 {32 - index * 3}</p></div>
+              <div><strong>{item.title}</strong><p>{item.area}㎡ · {item.familyLabel} · 浏览 {activities.filter((activity) => activity.type === "case_view" && activity.caseId === item.id).length} · 获客 {leads.filter((lead) => lead.viewedCases.includes(item.id)).length}</p></div>
             </Link>
           ))}
         </section>
@@ -1078,12 +1199,26 @@ function AdminLeadsPage() {
 
 function AdminLeadDetailPage() {
   const { id } = useParams();
-  const { leads, followUps, updateLead, addFollowUp } = useAdminDemo();
+  const { leads, followUps, activities, updateLead, addFollowUp } = useAdminDemo();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [followUpOpen, setFollowUpOpen] = useState(false);
   const [followUpNote, setFollowUpNote] = useState("");
   const [actionMessage, setActionMessage] = useState("");
   const lead = getLead(id, leads);
+
+  if (!lead) {
+    return (
+      <div className="admin-main">
+        <section className="admin-panel empty-admin-state">
+          <span className="eyebrow">LEAD NOT FOUND</span>
+          <h2>未找到该客户或无权查看</h2>
+          <p>该客户可能不属于当前演示商家，或记录已经被清除。</p>
+          <Link className="button dark" to="/admin/leads">返回客户列表</Link>
+        </section>
+      </div>
+    );
+  }
+
   const owner = getOwner(lead.ownerId);
   const leadActivities = activities.filter((item) => item.leadId === lead.id);
   const leadFollowUps = followUps.filter((item) => item.leadId === lead.id);
@@ -1261,7 +1396,7 @@ function InfoBlock({ label, value }: { label: string; value: string }) {
   );
 }
 
-function ActivityTimeline({ items, compact = false }: { items: typeof activities; compact?: boolean }) {
+function ActivityTimeline({ items, compact = false }: { items: Activity[]; compact?: boolean }) {
   return (
     <div className={compact ? "activity-timeline compact" : "activity-timeline"}>
       {items.map((item) => (
@@ -1306,6 +1441,7 @@ function AdminFollowUpsPage() {
               </header>
               {bucket.items.map((item) => {
                 const lead = getLead(item.leadId, leads);
+                if (!lead) return null;
                 return (
                   <Link className="followup-task" to={`/admin/leads/${lead.id}`} key={item.id}>
                     <div className="task-meta">
@@ -1326,7 +1462,264 @@ function AdminFollowUpsPage() {
   );
 }
 
-function AdminCasesPage() {
+const caseChangeTypes: CaseChangeType[] = ["替换图片", "修改标题", "修改文案", "调整标签", "新增案例", "下架案例"];
+const contentStatuses: ContentStatus[] = ["待拍摄", "待发布", "已发布", "待复盘"];
+const influencerStatuses: InfluencerStatus[] = ["待筛选", "待联系", "沟通中", "已确认", "已发布", "已复盘"];
+
+function AdminCaseRequestsPage() {
+  const { caseRequests, addCaseRequest } = useAdminDemo();
+  const [searchParams] = useSearchParams();
+  const requestedCaseId = searchParams.get("case");
+  const [selectedCaseId, setSelectedCaseId] = useState(() => cases.some((item) => item.id === requestedCaseId) ? requestedCaseId as string : cases[0].id);
+  const [changeType, setChangeType] = useState<CaseChangeType>("替换图片");
+  const [description, setDescription] = useState("");
+  const [materialName, setMaterialName] = useState("");
+  const [contactValue, setContactValue] = useState("");
+  const [expectedDate, setExpectedDate] = useState("");
+  const [message, setMessage] = useState("");
+  const currentMonth = getMonthKey();
+  const usedCount = caseRequests.filter((request) => request.quotaMonth === currentMonth && request.status !== "待提交").length;
+  const remainingCount = Math.max(0, 3 - usedCount);
+  const selectedCase = cases.find((item) => item.id === selectedCaseId) ?? cases[0];
+
+  const submitRequest = () => {
+    if (!description.trim()) return setMessage("请填写具体修改需求，方便客服准确评估。");
+    if (!contactValue.trim()) return setMessage("请填写演示联系方式。");
+    if (!expectedDate.trim()) return setMessage("请选择期望完成时间。");
+    if (remainingCount <= 0) return setMessage("本月 3 次修改额度已用完，可联系客服沟通下月排期。");
+
+    addCaseRequest({
+      caseId: changeType === "新增案例" ? "new-case" : selectedCase.id,
+      caseTitle: changeType === "新增案例" ? "新增案例" : selectedCase.title,
+      changeType,
+      description: description.trim(),
+      materialName: materialName || "暂未上传素材",
+      contact: contactValue.trim(),
+      expectedDate
+    });
+    setDescription("");
+    setMaterialName("");
+    setExpectedDate("");
+    setMessage("申请已提交，已使用 1 次本月案例修改额度。");
+  };
+
+  return (
+    <div className="admin-main case-request-page">
+      <section className="admin-panel admin-page-heading">
+        <div>
+          <span className="eyebrow">CASE UPDATE SERVICE</span>
+          <h2>案例更新申请</h2>
+          <p>进阶版每月包含 3 次案例修改，由 Bonest 客服协助完成。</p>
+        </div>
+        <div className="service-contact-actions">
+          <button className="button ghost" onClick={() => setMessage("Demo 环境暂不接入真实客服，正式服务将从专属客服入口沟通。")}>联系 Bonest 客服</button>
+          <button className="button dark" onClick={() => setMessage("已记录预约沟通意向，Demo 环境不会发送真实预约。")}>预约沟通</button>
+        </div>
+      </section>
+
+      {message && <p className="demo-action-message" role="status">{message}</p>}
+
+      <section className="quota-grid" aria-label="本月案例修改额度">
+        <article><span>本月总额度</span><strong>3 次</strong><p>进阶版固定额度</p></article>
+        <article><span>已使用</span><strong>{usedCount} 次</strong><p>已提交的申请</p></article>
+        <article><span>剩余额度</span><strong>{remainingCount} 次</strong><p>{remainingCount ? "可继续提交" : "本月额度已用完"}</p></article>
+        <article><span>下次重置</span><strong>{getNextMonthStart()}</strong><p>每月自动恢复为 3 次</p></article>
+      </section>
+
+      <section className="admin-panel">
+        <div className="panel-title">
+          <div><span className="eyebrow">CURRENT CASES</span><h2>当前案例列表</h2></div>
+          <span>仅查看，内容修改由 Bonest 客服处理</span>
+        </div>
+        <div className="case-request-grid">
+          {cases.map((item) => (
+            <article className={selectedCaseId === item.id ? "case-request-card selected" : "case-request-card"} key={item.id}>
+              <img src={item.cover} alt={item.title} />
+              <div>
+                <strong>{item.title}</strong>
+                <p>{item.city} · {item.area}㎡ · {item.style}</p>
+                <button
+                  className="button ghost"
+                  onClick={() => {
+                    setSelectedCaseId(item.id);
+                    setMessage(`已选择“${item.title}”，请在下方填写修改需求。`);
+                  }}
+                >
+                  申请修改
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="admin-panel" id="case-request-form">
+        <div className="panel-title">
+          <div><span className="eyebrow">SUBMIT REQUEST</span><h2>提交修改需求</h2></div>
+          <span>提交后客服会确认素材与排期</span>
+        </div>
+        <div className="case-request-form">
+          <label>需要修改的案例
+            <select value={selectedCaseId} onChange={(event) => setSelectedCaseId(event.target.value)} disabled={changeType === "新增案例"}>
+              {cases.map((item) => <option value={item.id} key={item.id}>{item.title} · {item.city}</option>)}
+            </select>
+          </label>
+          <label>修改类型
+            <select value={changeType} onChange={(event) => setChangeType(event.target.value as CaseChangeType)}>
+              {caseChangeTypes.map((item) => <option key={item}>{item}</option>)}
+            </select>
+          </label>
+          <label className="span-two">需求说明
+            <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={5} placeholder="例如：替换玄关完工图，并把标题改为更突出三口之家收纳动线的表达。" />
+          </label>
+          <label className="material-upload span-two">上传素材（Demo）
+            <input type="file" accept="image/*,.zip,.pdf,.doc,.docx" onChange={(event) => setMaterialName(event.target.files?.[0]?.name ?? "")} />
+            <span>{materialName || "可选择图片、压缩包或需求文档；Demo 不会实际上传文件。"}</span>
+          </label>
+          <label>联系方式
+            <input value={contactValue} onChange={(event) => setContactValue(event.target.value)} placeholder="联系人 / 演示微信或手机号" />
+          </label>
+          <label>期望完成时间
+            <input value={expectedDate} onChange={(event) => setExpectedDate(event.target.value)} placeholder="例如 2026-07-28" />
+          </label>
+        </div>
+        <div className="request-submit-row">
+          <p>本次提交将使用 1 次额度，提交前请确认需求和素材完整。</p>
+          <button className="button dark" disabled={remainingCount <= 0} onClick={submitRequest}>提交案例更新申请</button>
+        </div>
+      </section>
+
+      <section className="admin-panel">
+        <div className="panel-title"><div><span className="eyebrow">REQUEST HISTORY</span><h2>申请记录</h2></div><span>{caseRequests.length} 条记录</span></div>
+        <div className="request-history-list">
+          {[...caseRequests].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map((request) => (
+            <article className="request-history-item" key={request.id}>
+              <div className="request-history-main">
+                <span className="status-pill" data-status={request.status}>{request.status}</span>
+                <div><strong>{request.caseTitle} · {request.changeType}</strong><p>{request.description}</p></div>
+              </div>
+              <dl>
+                <div><dt>申请时间</dt><dd>{request.createdAt}</dd></div>
+                <div><dt>期望完成</dt><dd>{request.expectedDate || "待确认"}</dd></div>
+                <div><dt>客服备注</dt><dd>{request.serviceNote}</dd></div>
+                <div><dt>完成时间</dt><dd>{request.completedAt || "尚未完成"}</dd></div>
+              </dl>
+            </article>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function AdminContentCenterPage() {
+  const { contentItems, updateContentStatus } = useAdminDemo();
+  const [platform, setPlatform] = useState("全部");
+  const filteredItems = platform === "全部" ? contentItems : contentItems.filter((item) => item.platform === platform);
+  const todayItems = contentItems.filter((item) => item.recommendedToday).slice(0, 3);
+
+  return (
+    <div className="admin-main content-center-page">
+      <section className="admin-panel admin-page-heading">
+        <div><span className="eyebrow">CONTENT CENTER</span><h2>内容中心</h2><p>围绕真实户型、柜体预算和生活动线安排本周内容，不使用空泛营销话术。</p></div>
+        <span className="service-note">进阶版内容选题服务</span>
+      </section>
+
+      <section className="admin-panel">
+        <div className="panel-title"><div><span className="eyebrow">TODAY</span><h2>今日推荐选题</h2></div><span>优先拍摄 3 条</span></div>
+        <div className="content-recommend-grid">
+          {todayItems.map((item) => (
+            <article data-content-id={item.id} key={item.id}>
+              <span>{item.platform} · {item.category}</span>
+              <h3>{item.title}</h3>
+              <p>{item.hook}</p>
+              <strong>{item.plannedDate} · {item.status}</strong>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="admin-panel">
+        <div className="panel-title"><div><span className="eyebrow">TOPIC LIBRARY</span><h2>平台选题与标题建议</h2></div></div>
+        <div className="content-filter-tabs">
+          {["全部", "抖音", "小红书", "视频号"].map((item) => <button className={platform === item ? "selected" : ""} onClick={() => setPlatform(item)} key={item}>{item}选题</button>)}
+        </div>
+        <div className="content-title-list">
+          {filteredItems.map((item) => (
+            <article data-content-id={item.id} key={item.id}>
+              <div><span>{item.platform} · {item.category}</span><h3>{item.title}</h3><p>开场建议：{item.hook}</p></div>
+              <label>内容状态
+                <select value={item.status} onChange={(event) => updateContentStatus(item.id, event.target.value as ContentStatus)}>
+                  {contentStatuses.map((status) => <option key={status}>{status}</option>)}
+                </select>
+              </label>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="admin-panel">
+        <div className="panel-title"><div><span className="eyebrow">WEEKLY PLAN</span><h2>本周内容计划</h2></div><span>按拍摄与发布节奏推进</span></div>
+        <div className="weekly-content-plan">
+          {contentItems.slice(0, 7).map((item) => (
+            <article key={item.id}><time>{item.plannedDate}</time><div><strong>{item.title}</strong><p>{item.platform} · {item.category}</p></div><span className="status-pill" data-status={item.status}>{item.status}</span></article>
+          ))}
+        </div>
+      </section>
+
+      <section className="admin-panel">
+        <div className="panel-title"><div><span className="eyebrow">SCRIPT NOTES</span><h2>简单脚本与拍摄建议</h2></div></div>
+        <div className="script-advice-grid">
+          {filteredItems.slice(0, 6).map((item) => (
+            <article key={item.id}><span>{item.platform}</span><h3>{item.title}</h3><p><strong>脚本：</strong>{item.script}</p><p><strong>拍摄：</strong>{item.shootingTip}</p></article>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function AdminInfluencersPage() {
+  const { influencerCollabs, updateInfluencer } = useAdminDemo();
+  const [status, setStatus] = useState("全部");
+  const filtered = status === "全部" ? influencerCollabs : influencerCollabs.filter((item) => item.collaborationStatus === status);
+
+  return (
+    <div className="admin-main influencer-page">
+      <section className="admin-panel admin-page-heading">
+        <div><span className="eyebrow">CREATOR COLLABORATION</span><h2>达人合作</h2><p>记录本地家居内容合作进度、报价与发布效果，数据均为自然虚构的演示资料。</p></div>
+        <label className="compact-filter">合作状态
+          <select value={status} onChange={(event) => setStatus(event.target.value)}><option>全部</option>{influencerStatuses.map((item) => <option key={item}>{item}</option>)}</select>
+        </label>
+      </section>
+
+      <section className="influencer-card-grid">
+        {filtered.map((item) => (
+          <article className="admin-panel influencer-card" data-influencer-id={item.id} key={item.id}>
+            <header><div><span>{item.platform} · {item.city}</span><h3>{item.name}</h3></div><strong>{item.followers}粉丝</strong></header>
+            <div className="influencer-detail-grid">
+              <p><span>内容类型</span><strong>{item.contentType}</strong></p>
+              <p><span>合作形式</span><strong>{item.collaborationForm}</strong></p>
+              <p><span>合作报价</span><strong>{item.quote}</strong></p>
+              <p><span>联系状态</span><strong>{item.contactStatus}</strong></p>
+              <p><span>预计发布</span><strong>{item.expectedPublishAt}</strong></p>
+              <p><span>发布效果</span><strong>{item.performance}</strong></p>
+            </div>
+            <label className="influencer-status-field">合作状态
+              <select value={item.collaborationStatus} onChange={(event) => updateInfluencer(item.id, { collaborationStatus: event.target.value as InfluencerStatus })}>
+                {influencerStatuses.map((option) => <option key={option}>{option}</option>)}
+              </select>
+            </label>
+            <p className="influencer-notes"><strong>备注：</strong>{item.notes}</p>
+          </article>
+        ))}
+      </section>
+    </div>
+  );
+}
+
+export function AdminCasesPage() {
+  const { leads, activities } = useAdminDemo();
   return (
     <div className="admin-main">
       <section className="admin-panel">
@@ -1334,7 +1727,10 @@ function AdminCasesPage() {
         <div className="case-management-head">
           <span>案例名称</span><span>面积</span><span>户型</span><span>家庭结构</span><span>风格</span><span>浏览量</span><span>带来线索</span><span>状态</span><span>更新时间</span>
         </div>
-        {cases.map((item, index) => (
+        {cases.map((item, index) => {
+          const views = activities.filter((activity) => activity.type === "case_view" && activity.caseId === item.id).length;
+          const sourcedLeads = leads.filter((lead) => lead.viewedCases.includes(item.id)).length;
+          return (
           <Link className="case-management-row" to={`/admin/cases/${item.id}`} key={item.id}>
             <img src={item.cover} alt={item.title} />
             <div><strong>{item.title}</strong><p>{item.city} · {item.community}</p></div>
@@ -1342,20 +1738,24 @@ function AdminCasesPage() {
             <span>{item.layoutDetail}</span>
             <span>{item.familyLabel}</span>
             <span>{item.style}</span>
-            <span>{1286 - index * 73}</span>
-            <span>{32 - index}</span>
+            <span>{views}</span>
+            <span>{sourcedLeads}</span>
             <span>{index % 4 === 0 ? "草稿" : "已发布"}</span>
             <span>2026-07-{String(8 - (index % 6)).padStart(2, "0")}</span>
           </Link>
-        ))}
+          );
+        })}
       </section>
     </div>
   );
 }
 
-function AdminCaseDetailPage() {
+export function AdminCaseDetailPage() {
   const { id } = useParams();
   const item = getCase(id);
+  const { leads, activities } = useAdminDemo();
+  const views = activities.filter((activity) => activity.type === "case_view" && activity.caseId === item.id).length;
+  const sourcedLeads = leads.filter((lead) => lead.viewedCases.includes(item.id)).length;
   return (
     <div className="admin-main">
       <section className="admin-panel">
@@ -1378,7 +1778,7 @@ function AdminCaseDetailPage() {
           <InfoBlock label="案例名称" value={item.title} />
           <InfoBlock label="家庭结构" value={item.familyLabel} />
           <InfoBlock label="核心亮点" value={item.highlight} />
-          <InfoBlock label="数据表现" value="浏览 1,286 / 线索 32 / 深度查看 186" />
+          <InfoBlock label="数据表现" value={`浏览 ${views} / 线索 ${sourcedLeads}`} />
         </div>
       </section>
     </div>
@@ -1386,6 +1786,10 @@ function AdminCaseDetailPage() {
 }
 
 function AdminSettingsPage() {
+  const { clearCurrentDeviceData } = useAdminDemo();
+  const [message, setMessage] = useState("");
+  const merchant = getCurrentMerchant();
+  const deviceId = getOrCreateDeviceId();
   const settingGroups = [
     { title: "品牌设置", fields: [["品牌名称", "叙间全屋定制"], ["前台 CTA", "预约免费空间诊断"], ["品牌定位", "高品质全屋定制与收纳规划"]] },
     { title: "联系方式", fields: [["咨询电话", "Demo 电话未启用"], ["微信", "xujian_demo"], ["客服时段", "演示用 09:30-20:00"]] },
@@ -1405,6 +1809,48 @@ function AdminSettingsPage() {
           <button className="button dark">保存设置</button>
         </div>
         <div className="settings-grid">
+          <article className="settings-card merchant-settings-card">
+            <div>
+              <span className="eyebrow">LOCAL DATA SCOPE</span>
+              <h3>当前演示商家</h3>
+            </div>
+            <div className="merchant-meta">
+              <p><span>merchantId</span><strong>{merchant.merchantId}</strong></p>
+              <p><span>merchantName</span><strong>{merchant.merchantName}</strong></p>
+              <p><span>deviceId</span><strong>{deviceId}</strong></p>
+            </div>
+            <div className="merchant-switch-actions">
+              {merchants.map((item) => (
+                <button
+                  className={item.merchantId === merchant.merchantId ? "button dark" : "button ghost"}
+                  key={item.merchantId}
+                  onClick={() => {
+                    setCurrentMerchantId(item.merchantId);
+                    window.location.reload();
+                  }}
+                >
+                  {item.merchantName} Demo
+                </button>
+              ))}
+            </div>
+            <div className="merchant-danger-zone">
+              <div>
+                <strong>清空当前商家本机测试数据</strong>
+                <p>仅删除当前 merchantId 与当前 deviceId 下的记录，其他商家和 mock 数据不受影响。</p>
+              </div>
+              <button
+                className="button danger"
+                onClick={() => {
+                  if (!window.confirm(`确认清空 ${merchant.merchantName} 在当前设备上的测试数据？`)) return;
+                  clearCurrentDeviceData();
+                  setMessage("当前商家在本机产生的测试数据已清空，mock 数据仍保留。");
+                }}
+              >
+                清空当前商家本机测试数据
+              </button>
+            </div>
+            {message && <p className="demo-action-message" role="status">{message}</p>}
+          </article>
           {settingGroups.map((group) => (
             <article className="settings-card" key={group.title}>
               <h3>{group.title}</h3>
@@ -1441,8 +1887,10 @@ export default function App() {
         <Route path="leads" element={<AdminLeadsPage />} />
         <Route path="leads/:id" element={<AdminLeadDetailPage />} />
         <Route path="follow-ups" element={<AdminFollowUpsPage />} />
-        <Route path="cases" element={<AdminCasesPage />} />
-        <Route path="cases/:id" element={<AdminCaseDetailPage />} />
+        <Route path="content" element={<AdminContentCenterPage />} />
+        <Route path="influencers" element={<AdminInfluencersPage />} />
+        <Route path="case-requests" element={<AdminCaseRequestsPage />} />
+        <Route path="cases/*" element={<Navigate to="/admin/case-requests" replace />} />
         <Route path="settings" element={<AdminSettingsPage />} />
       </Route>
       <Route element={<Layout />}>

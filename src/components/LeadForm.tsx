@@ -15,7 +15,15 @@ export function LeadForm({ open, sourcePage, sourceCase, onClose }: LeadFormProp
   const [step, setStep] = useState(1);
   const [done, setDone] = useState(false);
   const [selectedNeeds, setSelectedNeeds] = useState<string[]>([]);
-  const [form, setForm] = useState({ area: "", community: "", name: "", phone: "" });
+  const [form, setForm] = useState({
+    area: "",
+    community: "",
+    city: "无锡",
+    familyMembers: "三口之家",
+    name: "",
+    phone: "",
+    wechat: ""
+  });
   const [error, setError] = useState("");
 
   if (!open) return null;
@@ -35,9 +43,12 @@ export function LeadForm({ open, sourcePage, sourceCase, onClose }: LeadFormProp
     saveLeadSubmission({
       name: form.name.trim(),
       phone: `${phone.slice(0, 3)}****${phone.slice(-4)}`,
+      wechat: form.wechat.trim(),
+      city: form.city,
       area: form.area.trim(),
       community: form.community.trim() || "演示小区",
-      needs: selectedNeeds.length ? selectedNeeds : ["空间规划咨询"],
+      familyMembers: [form.familyMembers],
+      painPoints: selectedNeeds.length ? selectedNeeds : ["空间规划咨询"],
       sourcePage,
       sourceCase
     });
@@ -73,12 +84,17 @@ export function LeadForm({ open, sourcePage, sourceCase, onClose }: LeadFormProp
                 </label>
                 <input value={form.area} onChange={(event) => setForm({ ...form, area: event.target.value })} placeholder="房屋面积，例如 118㎡" />
                 <input value={form.community} onChange={(event) => setForm({ ...form, community: event.target.value })} placeholder="小区名称（演示可填写示例）" />
+                <select value={form.city} onChange={(event) => setForm({ ...form, city: event.target.value })}>
+                  <option>无锡</option>
+                  <option>靖江</option>
+                  <option>江阴</option>
+                  <option>其他城市</option>
+                </select>
               </div>
             )}
             {step === 2 && (
               <div className="form-step">
-                <select defaultValue="">
-                  <option value="" disabled>家庭成员</option>
+                <select value={form.familyMembers} onChange={(event) => setForm({ ...form, familyMembers: event.target.value })}>
                   <option>三口之家</option>
                   <option>新婚二人</option>
                   <option>二胎家庭</option>
@@ -103,7 +119,7 @@ export function LeadForm({ open, sourcePage, sourceCase, onClose }: LeadFormProp
               <div className="form-step">
                 <input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="姓名" />
                 <input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="手机号" inputMode="numeric" maxLength={11} />
-                <input placeholder="微信号（可选）" />
+                <input value={form.wechat} onChange={(event) => setForm({ ...form, wechat: event.target.value })} placeholder="微信号（可选）" />
                 {error && <p className="form-error" role="alert">{error}</p>}
                 <p className="fineprint">Bonest 演示案例 · 提交内容仅保存在当前浏览器，不会发送到服务器。</p>
               </div>
