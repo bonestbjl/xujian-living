@@ -497,6 +497,24 @@ p, li {
   padding: clamp(3rem, 7vw, 5rem);
 }
 
+.site-demo-notice {
+  background: #eee7dc;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.72rem;
+  margin: 0;
+  padding: 0.45rem clamp(1rem, 4vw, 4rem);
+  text-align: center;
+}
+
+.form-error,
+.demo-action-message {
+  color: #9b3f2d;
+  font-size: 0.88rem;
+  font-weight: 700;
+  margin: 0.6rem 0 0;
+}
+
 .bottom-tabs {
   display: none;
 }
@@ -1081,6 +1099,23 @@ p, li {
   margin: 0;
 }
 
+.admin-demo-tools {
+  border-top: 1px solid rgba(255, 250, 242, 0.16);
+  color: rgba(255, 250, 242, 0.64);
+  font-size: 0.74rem;
+  line-height: 1.55;
+  margin-top: 1rem;
+  padding-top: 0.9rem;
+}
+
+.admin-demo-tools p {
+  margin: 0 0 0.45rem;
+}
+
+.admin-demo-tools .text-link {
+  color: var(--paper);
+}
+
 .admin-workspace {
   min-width: 0;
 }
@@ -1096,6 +1131,12 @@ p, li {
   position: sticky;
   top: 0;
   z-index: 12;
+}
+
+.admin-demo-notice {
+  color: var(--muted);
+  font-size: 0.72rem;
+  margin: 0.22rem 0 0;
 }
 
 .admin-topbar h1 {
@@ -1394,6 +1435,35 @@ p, li {
   gap: 0.5rem;
   justify-content: flex-end;
   max-width: 420px;
+}
+
+.admin-main > .demo-action-message {
+  margin: 0 0 1rem;
+}
+
+.demo-field {
+  color: var(--muted);
+  display: grid;
+  font-size: 0.82rem;
+  gap: 0.35rem;
+  margin-top: 0.85rem;
+}
+
+.demo-field input,
+.demo-field select,
+.followup-composer textarea {
+  background: #fffaf2;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font: inherit;
+  padding: 0.62rem 0.7rem;
+  width: 100%;
+}
+
+.followup-composer {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0.8rem 0;
 }
 
 .lead-detail-layout {

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Upload, X } from "lucide-react";
+import { saveLeadSubmission } from "../data/demoStore";
 
 interface LeadFormProps {
   open: boolean;
@@ -14,6 +15,8 @@ export function LeadForm({ open, sourcePage, sourceCase, onClose }: LeadFormProp
   const [step, setStep] = useState(1);
   const [done, setDone] = useState(false);
   const [selectedNeeds, setSelectedNeeds] = useState<string[]>([]);
+  const [form, setForm] = useState({ area: "", community: "", name: "", phone: "" });
+  const [error, setError] = useState("");
 
   if (!open) return null;
 
@@ -21,6 +24,24 @@ export function LeadForm({ open, sourcePage, sourceCase, onClose }: LeadFormProp
     setSelectedNeeds((current) =>
       current.includes(need) ? current.filter((item) => item !== need) : [...current, need]
     );
+  };
+
+  const submitDemoLead = () => {
+    const phone = form.phone.replace(/\s/g, "");
+    if (!form.name.trim()) return setError("请填写称呼");
+    if (!/^1\d{10}$/.test(phone)) return setError("请填写 11 位手机号码");
+    if (!form.area.trim()) return setError("请填写房屋面积");
+    setError("");
+    saveLeadSubmission({
+      name: form.name.trim(),
+      phone: `${phone.slice(0, 3)}****${phone.slice(-4)}`,
+      area: form.area.trim(),
+      community: form.community.trim() || "演示小区",
+      needs: selectedNeeds.length ? selectedNeeds : ["空间规划咨询"],
+      sourcePage,
+      sourceCase
+    });
+    setDone(true);
   };
 
   return (
@@ -50,8 +71,8 @@ export function LeadForm({ open, sourcePage, sourceCase, onClose }: LeadFormProp
                   <span>选择户型图（Demo 可不上传真实文件）</span>
                   <input type="file" accept="image/*" />
                 </label>
-                <input placeholder="房屋面积，例如 118㎡" />
-                <input placeholder="小区名称" />
+                <input value={form.area} onChange={(event) => setForm({ ...form, area: event.target.value })} placeholder="房屋面积，例如 118㎡" />
+                <input value={form.community} onChange={(event) => setForm({ ...form, community: event.target.value })} placeholder="小区名称（演示可填写示例）" />
               </div>
             )}
             {step === 2 && (
@@ -80,10 +101,11 @@ export function LeadForm({ open, sourcePage, sourceCase, onClose }: LeadFormProp
             )}
             {step === 3 && (
               <div className="form-step">
-                <input placeholder="姓名" />
-                <input placeholder="手机号" />
+                <input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="姓名" />
+                <input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="手机号" inputMode="numeric" maxLength={11} />
                 <input placeholder="微信号（可选）" />
-                <p className="fineprint">Demo 阶段不会真实提交到服务器，未来可替换为 CRM 或企业微信接口。</p>
+                {error && <p className="form-error" role="alert">{error}</p>}
+                <p className="fineprint">Bonest 演示案例 · 提交内容仅保存在当前浏览器，不会发送到服务器。</p>
               </div>
             )}
             <div className="form-actions">
@@ -91,7 +113,7 @@ export function LeadForm({ open, sourcePage, sourceCase, onClose }: LeadFormProp
               {step < 3 ? (
                 <button className="button dark" onClick={() => setStep(step + 1)}>下一步</button>
               ) : (
-                <button className="button dark" onClick={() => setDone(true)}>提交需求</button>
+                <button className="button dark" onClick={submitDemoLead}>提交需求</button>
               )}
             </div>
           </>

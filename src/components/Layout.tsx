@@ -36,6 +36,7 @@ export function Layout() {
           <Menu />
         </button>
       </header>
+      <p className="site-demo-notice">Bonest 演示案例 · 页面与数据均为示例</p>
       {menuOpen && (
         <div className="mobile-menu">
           <button className="icon-button close" onClick={() => setMenuOpen(false)} aria-label="关闭菜单">

@@ -82,7 +82,8 @@ export const salesPeople: SalesPerson[] = [
 ];
 
 const names = ["王女士", "陈先生", "周女士", "李女士", "张先生", "赵女士", "刘先生", "孙女士", "吴先生", "顾女士"];
-const communities = ["万科翡翠东方", "华润江南府", "中洲华庭", "蠡湖香樟园", "金科世界城", "太湖雍华府", "运河上院", "蔚蓝滨江", "映月湖", "滨江新城"];
+// 以下小区、姓名与行为记录均为公开演示用的虚构数据。
+const communities = ["云栖雅居", "观澜公馆", "松湖家园", "林隐花园", "璞园里", "湖畔雅筑", "河畔书院", "星湾新里", "月映庭", "江畔悦府"];
 const layouts = ["三室两厅", "四室两厅", "两室两厅", "大平层", "三室一厅"];
 const statuses = ["new", "contacted", "wechat_added", "appointment", "measured", "proposal", "quotation", "negotiation", "won", "paused"];
 const sources = ["空间诊断", "案例详情", "预算规划", "上传户型", "空间效果"];

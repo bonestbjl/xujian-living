@@ -13,7 +13,8 @@ import { images } from "./data/images";
 import { inspirationCategories, inspirations, getInspiration } from "./data/inspiration";
 import { materialCards, processSteps } from "./data/materials";
 import { estimateBudget, type BudgetLevel, type MaterialLevel } from "./data/budgetRules";
-import { activities, adminLeads, dashboardMetrics, followUps, funnelSteps, salesPeople, type AdminLead } from "./data/admin";
+import { activities, dashboardMetrics, funnelSteps, salesPeople, type AdminLead, type FollowUp } from "./data/admin";
+import { loadAdminDemoData, resetAdminDemoData, saveAdminDemoData } from "./data/demoStore";
 import { matchCases, type MatchInput } from "./utils/match";
 import { intentLabels, leadStatusLabels } from "./config/leadScoring";
 
@@ -776,15 +777,55 @@ function getOwner(id: string) {
   return salesPeople.find((item) => item.id === id) ?? salesPeople[0];
 }
 
-function getLead(id?: string) {
-  return adminLeads.find((lead) => lead.id === id) ?? adminLeads[0];
+function getLead(id: string | undefined, leads: AdminLead[]) {
+  return leads.find((lead) => lead.id === id) ?? leads[0];
 }
 
 function getCaseTitle(id?: string) {
   return cases.find((item) => item.id === id)?.title ?? "未关联案例";
 }
 
+type AdminDemoTools = {
+  leads: AdminLead[];
+  followUps: FollowUp[];
+  updateLead: (id: string, changes: Partial<AdminLead>) => void;
+  addFollowUp: (entry: Omit<FollowUp, "id" | "createdAt" | "ownerId" | "done">) => void;
+  resetDemoData: () => void;
+};
+
+function useAdminDemo() {
+  return useOutletContext<AdminDemoTools>();
+}
+
 function AdminShell() {
+  const [demoData, setDemoData] = useState(loadAdminDemoData);
+
+  useEffect(() => {
+    saveAdminDemoData(demoData);
+  }, [demoData]);
+
+  const updateLead = (id: string, changes: Partial<AdminLead>) => {
+    setDemoData((current) => ({
+      ...current,
+      leads: current.leads.map((lead) => lead.id === id ? { ...lead, ...changes } : lead)
+    }));
+  };
+
+  const addFollowUp = (entry: Omit<FollowUp, "id" | "createdAt" | "ownerId" | "done">) => {
+    setDemoData((current) => ({
+      ...current,
+      followUps: [{
+        ...entry,
+        id: `demo-follow-up-${Date.now()}`,
+        ownerId: "owner-chen",
+        createdAt: new Date().toLocaleString("zh-CN", { hour12: false }),
+        done: false
+      }, ...current.followUps]
+    }));
+  };
+
+  const resetDemoData = () => setDemoData(resetAdminDemoData());
+
   return (
     <section className="admin-page">
       <aside className="admin-sidebar">
@@ -810,12 +851,17 @@ function AdminShell() {
             <p>退出登录</p>
           </div>
         </div>
+        <div className="admin-demo-tools">
+          <p>Bonest 演示案例<br />页面与数据均为示例</p>
+          <button className="text-link as-button" onClick={resetDemoData}>重置演示数据</button>
+        </div>
       </aside>
       <div className="admin-workspace">
         <header className="admin-topbar">
           <div>
             <span className="eyebrow">BUSINESS WORKSPACE</span>
             <h1>商家工作台</h1>
+            <p className="admin-demo-notice">Bonest 演示案例 · 页面与数据均为示例</p>
           </div>
           <label className="admin-search">
             <Search size={18} />
@@ -827,15 +873,16 @@ function AdminShell() {
             <span className="avatar">陈</span>
           </div>
         </header>
-        <Outlet />
+        <Outlet context={{ leads: demoData.leads, followUps: demoData.followUps, updateLead, addFollowUp, resetDemoData }} />
       </div>
     </section>
   );
 }
 
 function AdminDashboardPage() {
-  const highIntent = adminLeads.filter((lead) => lead.intentLevel === "high").slice(0, 4);
-  const todayLeads = adminLeads.slice(0, 5);
+  const { leads, followUps } = useAdminDemo();
+  const highIntent = leads.filter((lead) => lead.intentLevel === "high").slice(0, 4);
+  const todayLeads = leads.slice(0, 5);
   const todayTasks = followUps.filter((item) => !item.done).slice(0, 5);
   const recentActivities = activities.slice(0, 8);
   const hotCases = cases.slice(0, 5);
@@ -901,7 +948,7 @@ function AdminDashboardPage() {
         <section className="admin-panel">
           <div className="panel-title"><h2>今日待跟进</h2><Link to="/admin/follow-ups">进入任务</Link></div>
           {todayTasks.map((task) => {
-            const lead = getLead(task.leadId);
+            const lead = getLead(task.leadId, leads);
             return (
               <div className="task-row" key={task.id}>
                 <time>{task.nextFollowUpAt.slice(11)}</time>
@@ -950,11 +997,12 @@ function LeadMiniCard({ lead }: { lead: AdminLead }) {
 }
 
 function AdminLeadsPage() {
+  const { leads, followUps } = useAdminDemo();
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("全部");
   const [intent, setIntent] = useState("全部");
   const [source, setSource] = useState("全部");
-  const filtered = adminLeads.filter((lead) => {
+  const filtered = leads.filter((lead) => {
     const haystack = `${lead.name} ${lead.phone} ${lead.community} ${lead.city} ${lead.stylePreference}`;
     return (
       haystack.includes(query) &&
@@ -964,13 +1012,13 @@ function AdminLeadsPage() {
     );
   });
   const counts = {
-    all: adminLeads.length,
-    today: adminLeads.filter((lead) => lead.createdAt.includes("2026-07-08")).length,
-    high: adminLeads.filter((lead) => lead.intentLevel === "high").length,
+    all: leads.length,
+    today: leads.filter((lead) => lead.createdAt.includes("2026-07-08")).length,
+    high: leads.filter((lead) => lead.intentLevel === "high").length,
     follow: followUps.filter((item) => !item.done).length,
-    measured: adminLeads.filter((lead) => lead.status === "measured").length,
-    proposal: adminLeads.filter((lead) => lead.status === "proposal").length,
-    won: adminLeads.filter((lead) => lead.status === "won").length
+    measured: leads.filter((lead) => lead.status === "measured").length,
+    proposal: leads.filter((lead) => lead.status === "proposal").length,
+    won: leads.filter((lead) => lead.status === "won").length
   };
 
   return (
@@ -1001,7 +1049,7 @@ function AdminLeadsPage() {
           </select>
           <select value={source} onChange={(event) => setSource(event.target.value)}>
             <option>全部</option>
-            {Array.from(new Set(adminLeads.map((lead) => lead.source))).map((item) => <option value={item} key={item}>{item}</option>)}
+            {Array.from(new Set(leads.map((lead) => lead.source))).map((item) => <option value={item} key={item}>{item}</option>)}
           </select>
         </div>
       </section>
@@ -1030,8 +1078,12 @@ function AdminLeadsPage() {
 
 function AdminLeadDetailPage() {
   const { id } = useParams();
+  const { leads, followUps, updateLead, addFollowUp } = useAdminDemo();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const lead = getLead(id);
+  const [followUpOpen, setFollowUpOpen] = useState(false);
+  const [followUpNote, setFollowUpNote] = useState("");
+  const [actionMessage, setActionMessage] = useState("");
+  const lead = getLead(id, leads);
   const owner = getOwner(lead.ownerId);
   const leadActivities = activities.filter((item) => item.leadId === lead.id);
   const leadFollowUps = followUps.filter((item) => item.leadId === lead.id);
@@ -1042,6 +1094,21 @@ function AdminLeadDetailPage() {
     }))
     .sort((a, b) => b.score - a.score)
     .slice(0, 3);
+
+  const submitFollowUp = () => {
+    if (!followUpNote.trim()) return setActionMessage("请先填写本次沟通记录");
+    addFollowUp({
+      leadId: lead.id,
+      method: "演示跟进",
+      content: followUpNote.trim(),
+      customerFeedback: "演示环境记录，等待后续确认。",
+      nextAction: "下次联系确认空间方案与预约时间",
+      nextFollowUpAt: lead.nextFollowUpAt
+    });
+    setFollowUpNote("");
+    setFollowUpOpen(false);
+    setActionMessage("跟进记录已保存到当前浏览器");
+  };
 
   return (
     <div className="admin-main">
@@ -1058,10 +1125,21 @@ function AdminLeadDetailPage() {
           </div>
         </div>
         <div className="lead-actions">
-          {["拨打电话", "复制微信", "添加跟进", "预约量房"].map((item) => <button className="button ghost" key={item}>{item}</button>)}
+          <button className="button ghost" onClick={() => setActionMessage("演示环境不拨打真实电话")}>
+            拨打电话
+          </button>
+          <button className="button ghost" onClick={() => setActionMessage("演示微信号仅用于展示，不会复制真实联系方式")}>
+            复制微信
+          </button>
+          <button className="button ghost" onClick={() => setFollowUpOpen(true)}>添加跟进</button>
+          <button className="button ghost" onClick={() => { updateLead(lead.id, { status: "appointment" }); setActionMessage("已标记为预约量房（演示数据）"); }}>
+            预约量房
+          </button>
           <button className="button dark" onClick={() => setDrawerOpen(true)}>发送案例</button>
         </div>
       </section>
+
+      {actionMessage && <p className="demo-action-message" role="status">{actionMessage}</p>}
 
       <div className="lead-detail-layout">
         <main className="lead-detail-main">
@@ -1105,6 +1183,25 @@ function AdminLeadDetailPage() {
           </section>
 
           <section className="admin-panel">
+            <div className="panel-title"><h2>演示客户管理</h2><span>保存在本机</span></div>
+            <label className="demo-field">跟进状态
+              <select value={lead.status} onChange={(event) => updateLead(lead.id, { status: event.target.value })}>
+                {Object.entries(leadStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </label>
+            <label className="demo-field">客户等级
+              <select value={lead.intentLevel} onChange={(event) => updateLead(lead.id, { intentLevel: event.target.value as AdminLead["intentLevel"] })}>
+                <option value="high">高意向</option>
+                <option value="medium">持续跟进</option>
+                <option value="low">待观察</option>
+              </select>
+            </label>
+            <label className="demo-field">预约 / 下次跟进
+              <input value={lead.nextFollowUpAt} onChange={(event) => updateLead(lead.id, { nextFollowUpAt: event.target.value })} />
+            </label>
+          </section>
+
+          <section className="admin-panel">
             <div className="panel-title"><h2>预算记录</h2><span>自助测算</span></div>
             <p>{lead.budgetResult.area} · {lead.budgetResult.spaces.join("、")}</p>
             <p>{lead.budgetResult.level} · {lead.budgetResult.material}</p>
@@ -1119,7 +1216,8 @@ function AdminLeadDetailPage() {
           </section>
 
           <section className="admin-panel">
-            <div className="panel-title"><h2>跟进记录</h2><button className="text-link as-button">新增跟进</button></div>
+            <div className="panel-title"><h2>跟进记录</h2><button className="text-link as-button" onClick={() => setFollowUpOpen(true)}>新增跟进</button></div>
+            {followUpOpen && <div className="followup-composer"><textarea value={followUpNote} onChange={(event) => setFollowUpNote(event.target.value)} placeholder="记录本次沟通重点、客户反馈或下次动作" rows={3} /><button className="button dark" onClick={submitFollowUp}>保存演示跟进</button></div>}
             {leadFollowUps.map((item) => (
               <article className="followup-card" key={item.id}>
                 <strong>{item.createdAt} · {item.method}</strong>
@@ -1180,6 +1278,7 @@ function ActivityTimeline({ items, compact = false }: { items: typeof activities
 }
 
 function AdminFollowUpsPage() {
+  const { leads, followUps } = useAdminDemo();
   const buckets = [
     { title: "今天", items: followUps.filter((item) => !item.done).slice(0, 6) },
     { title: "逾期", items: followUps.filter((item, index) => !item.done && index % 4 === 1).slice(0, 5) },
@@ -1206,7 +1305,7 @@ function AdminFollowUpsPage() {
                 <span>{bucket.items.length}</span>
               </header>
               {bucket.items.map((item) => {
-                const lead = getLead(item.leadId);
+                const lead = getLead(item.leadId, leads);
                 return (
                   <Link className="followup-task" to={`/admin/leads/${lead.id}`} key={item.id}>
                     <div className="task-meta">
@@ -1289,8 +1388,8 @@ function AdminCaseDetailPage() {
 function AdminSettingsPage() {
   const settingGroups = [
     { title: "品牌设置", fields: [["品牌名称", "叙间全屋定制"], ["前台 CTA", "预约免费空间诊断"], ["品牌定位", "高品质全屋定制与收纳规划"]] },
-    { title: "联系方式", fields: [["咨询电话", "400-800-2026"], ["微信", "xujian_living"], ["客服时段", "09:30-20:00"]] },
-    { title: "门店信息", fields: [["城市", "无锡 / 江阴 / 靖江"], ["门店地址", "滨湖区生活美学中心 2F"], ["营业时间", "周一至周日 10:00-21:00"]] },
+    { title: "联系方式", fields: [["咨询电话", "Demo 电话未启用"], ["微信", "xujian_demo"], ["客服时段", "演示用 09:30-20:00"]] },
+    { title: "门店信息", fields: [["城市", "演示服务区域"], ["门店地址", "演示门店资料，正式上线前配置"], ["营业时间", "演示用 周一至周日 10:00-21:00"]] },
     { title: "线索设置", fields: [["高意向阈值", "80 分以上"], ["自动分配", "按城市与销售负载"], ["隐私展示", "手机号默认脱敏"]] },
     { title: "预算规则", fields: [["基础收纳", "3-6 万"], ["完整规划", "6-12 万"], ["高阶全案", "12 万以上"]] }
   ];
