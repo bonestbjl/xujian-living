@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, NavLink, Outlet, Route, Routes, useNavigate, useOutletContext, useParams, useSearchParams } from "react-router-dom";
-import { Bell, BriefcaseBusiness, CalendarClock, Check, ChevronRight, ClipboardList, FileImage, Filter, LayoutDashboard, Plus, Search, Settings, UserRound } from "lucide-react";
+import { Bell, BriefcaseBusiness, CalendarClock, Check, ChevronRight, Filter, LayoutDashboard, Plus, Search, Settings, UserRound } from "lucide-react";
 import { Layout } from "./components/Layout";
 import { CaseCard } from "./components/CaseCard";
 import { HotspotImage } from "./components/HotspotImage";
@@ -769,8 +769,6 @@ const adminNav = [
   { label: "客户线索", path: "/admin/leads", icon: UserRound },
   { label: "跟进任务", path: "/admin/follow-ups", icon: CalendarClock },
   { label: "案例管理", path: "/admin/cases", icon: BriefcaseBusiness },
-  { label: "内容管理", path: "/admin/content", icon: ClipboardList },
-  { label: "素材库", path: "/admin/assets", icon: FileImage },
   { label: "系统设置", path: "/admin/settings", icon: Settings }
 ];
 
@@ -1010,7 +1008,7 @@ function AdminLeadsPage() {
 
       <section className="admin-panel lead-list-panel">
         <div className="lead-table-head">
-          <span>客户</span><span>房屋信息</span><span>核心需求</span><span>预算</span><span>意向</span><span>阶段</span><span>负责人</span><span>下次跟进</span>
+          <span>客户</span><span>房屋信息</span><span>核心需求</span><span>预算</span><span>意向</span><span>阶段</span><span>负责人</span><span>下次跟进</span><span>操作</span>
         </div>
         {filtered.map((lead) => (
           <Link className="lead-table-row" to={`/admin/leads/${lead.id}`} key={lead.id}>
@@ -1022,6 +1020,7 @@ function AdminLeadsPage() {
             <span>{leadStatusLabels[lead.status]}</span>
             <span>{getOwner(lead.ownerId).name}</span>
             <span>{lead.nextFollowUpAt.slice(5)}</span>
+            <span className="table-action">查看详情</span>
           </Link>
         ))}
       </section>
@@ -1181,21 +1180,48 @@ function ActivityTimeline({ items, compact = false }: { items: typeof activities
 }
 
 function AdminFollowUpsPage() {
+  const buckets = [
+    { title: "今天", items: followUps.filter((item) => !item.done).slice(0, 6) },
+    { title: "逾期", items: followUps.filter((item, index) => !item.done && index % 4 === 1).slice(0, 5) },
+    { title: "明天", items: followUps.filter((item, index) => !item.done && index % 4 === 2).slice(0, 5) },
+    { title: "本周", items: followUps.filter((item, index) => !item.done && index % 4 === 3).slice(0, 6) },
+    { title: "已完成", items: followUps.filter((item) => item.done).slice(0, 5) }
+  ];
+
   return (
     <div className="admin-main">
-      <AdminPlaceholder title="跟进任务" body="今天、逾期、明天、本周和已完成任务结构已接入 Mock 数据，下一阶段补完成/延期/新增备注交互。" />
       <section className="admin-panel">
-        {followUps.slice(0, 20).map((item) => {
-          const lead = getLead(item.leadId);
-          return (
-            <div className="task-row" key={item.id}>
-              <time>{item.nextFollowUpAt.slice(5)}</time>
-              <div><strong>{lead.name}</strong><p>{item.nextAction}</p></div>
-              <span className={`intent-pill ${lead.intentLevel}`}>{intentLabels[lead.intentLevel]}</span>
-              <Link to={`/admin/leads/${lead.id}`}>查看客户</Link>
-            </div>
-          );
-        })}
+        <div className="panel-title">
+          <div>
+            <span className="eyebrow">FOLLOW UP</span>
+            <h2>跟进任务</h2>
+          </div>
+          <button className="button dark">新增跟进</button>
+        </div>
+        <div className="followup-board">
+          {buckets.map((bucket) => (
+            <article className="followup-column" key={bucket.title}>
+              <header>
+                <strong>{bucket.title}</strong>
+                <span>{bucket.items.length}</span>
+              </header>
+              {bucket.items.map((item) => {
+                const lead = getLead(item.leadId);
+                return (
+                  <Link className="followup-task" to={`/admin/leads/${lead.id}`} key={item.id}>
+                    <div className="task-meta">
+                      <span>{item.nextFollowUpAt.slice(5)}</span>
+                      <span className={`intent-pill ${lead.intentLevel}`}>{intentLabels[lead.intentLevel]}</span>
+                    </div>
+                    <strong>{lead.name} · {lead.community}</strong>
+                    <p>{item.nextAction}</p>
+                    <small>{item.method} · {getOwner(item.ownerId).name}</small>
+                  </Link>
+                );
+              })}
+            </article>
+          ))}
+        </div>
       </section>
     </div>
   );
@@ -1206,14 +1232,21 @@ function AdminCasesPage() {
     <div className="admin-main">
       <section className="admin-panel">
         <div className="panel-title"><h2>案例管理</h2><button className="button dark">新建案例</button></div>
+        <div className="case-management-head">
+          <span>案例名称</span><span>面积</span><span>户型</span><span>家庭结构</span><span>风格</span><span>浏览量</span><span>带来线索</span><span>状态</span><span>更新时间</span>
+        </div>
         {cases.map((item, index) => (
           <Link className="case-management-row" to={`/admin/cases/${item.id}`} key={item.id}>
             <img src={item.cover} alt={item.title} />
-            <div><strong>{item.title}</strong><p>{item.city} · {item.community} · {item.area}㎡ · {item.familyLabel}</p></div>
+            <div><strong>{item.title}</strong><p>{item.city} · {item.community}</p></div>
+            <span>{item.area}㎡</span>
+            <span>{item.layoutDetail}</span>
+            <span>{item.familyLabel}</span>
             <span>{item.style}</span>
+            <span>{1286 - index * 73}</span>
+            <span>{32 - index}</span>
             <span>{index % 4 === 0 ? "草稿" : "已发布"}</span>
-            <span>浏览 {1286 - index * 73}</span>
-            <span>获客 {32 - index}</span>
+            <span>2026-07-{String(8 - (index % 6)).padStart(2, "0")}</span>
           </Link>
         ))}
       </section>
@@ -1253,13 +1286,40 @@ function AdminCaseDetailPage() {
   );
 }
 
-function AdminPlaceholder({ title, body }: { title: string; body: string }) {
+function AdminSettingsPage() {
+  const settingGroups = [
+    { title: "品牌设置", fields: [["品牌名称", "叙间全屋定制"], ["前台 CTA", "预约免费空间诊断"], ["品牌定位", "高品质全屋定制与收纳规划"]] },
+    { title: "联系方式", fields: [["咨询电话", "400-800-2026"], ["微信", "xujian_living"], ["客服时段", "09:30-20:00"]] },
+    { title: "门店信息", fields: [["城市", "无锡 / 江阴 / 靖江"], ["门店地址", "滨湖区生活美学中心 2F"], ["营业时间", "周一至周日 10:00-21:00"]] },
+    { title: "线索设置", fields: [["高意向阈值", "80 分以上"], ["自动分配", "按城市与销售负载"], ["隐私展示", "手机号默认脱敏"]] },
+    { title: "预算规则", fields: [["基础收纳", "3-6 万"], ["完整规划", "6-12 万"], ["高阶全案", "12 万以上"]] }
+  ];
+
   return (
-    <section className="admin-panel">
-      <span className="eyebrow">ADMIN MODULE</span>
-      <h2>{title}</h2>
-      <p>{body}</p>
-    </section>
+    <div className="admin-main">
+      <section className="admin-panel">
+        <div className="panel-title">
+          <div>
+            <span className="eyebrow">SETTINGS</span>
+            <h2>系统设置</h2>
+          </div>
+          <button className="button dark">保存设置</button>
+        </div>
+        <div className="settings-grid">
+          {settingGroups.map((group) => (
+            <article className="settings-card" key={group.title}>
+              <h3>{group.title}</h3>
+              {group.fields.map(([label, value]) => (
+                <label key={label}>
+                  <span>{label}</span>
+                  <input defaultValue={value} />
+                </label>
+              ))}
+            </article>
+          ))}
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -1284,9 +1344,7 @@ export default function App() {
         <Route path="follow-ups" element={<AdminFollowUpsPage />} />
         <Route path="cases" element={<AdminCasesPage />} />
         <Route path="cases/:id" element={<AdminCaseDetailPage />} />
-        <Route path="content" element={<AdminPlaceholder title="内容管理" body="首页内容、空间效果、材料工艺、设计师、品牌介绍和常见问题的基础结构已预留。" />} />
-        <Route path="assets" element={<AdminPlaceholder title="素材库" body="案例、空间效果、材料、人物和户型图素材的 Mock 管理入口已预留。" />} />
-        <Route path="settings" element={<AdminPlaceholder title="系统设置" body="品牌设置、联系方式、门店信息、线索设置、预算规则和账号设置集中在这里。" />} />
+        <Route path="settings" element={<AdminSettingsPage />} />
       </Route>
       <Route element={<Layout />}>
         <Route path="/" element={<HomePage />} />

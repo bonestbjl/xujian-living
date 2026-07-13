@@ -1299,11 +1299,20 @@ p, li {
 }
 
 .case-management-row {
-  grid-template-columns: 80px 1fr repeat(4, auto);
+  grid-template-columns: 80px minmax(220px, 1.2fr) 70px 1fr 0.9fr 0.8fr 70px 80px 80px 110px;
 }
 
 .case-management-row img {
   width: 80px;
+}
+
+.case-management-head {
+  color: var(--muted);
+  display: grid;
+  font-size: 0.82rem;
+  gap: 0.8rem;
+  grid-template-columns: calc(80px + 220px + 0.8rem) 70px 1fr 0.9fr 0.8fr 70px 80px 80px 110px;
+  padding-bottom: 0.7rem;
 }
 
 .lead-tabs {
@@ -1341,7 +1350,7 @@ p, li {
 .lead-table-row {
   display: grid;
   gap: 0.75rem;
-  grid-template-columns: 1.1fr 1.3fr 1.45fr 0.7fr 0.8fr 0.8fr 0.7fr 0.9fr;
+  grid-template-columns: 1.1fr 1.3fr 1.45fr 0.7fr 0.8fr 0.8fr 0.7fr 0.9fr 0.7fr;
 }
 
 .lead-table-head {
@@ -1360,6 +1369,11 @@ p, li {
 .lead-table-row p {
   color: var(--muted);
   margin-bottom: 0;
+}
+
+.table-action {
+  color: var(--wood);
+  font-weight: 800;
 }
 
 .lead-detail-hero {
@@ -1460,6 +1474,59 @@ p, li {
   margin-bottom: 0.35rem;
 }
 
+.followup-board {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: repeat(5, minmax(180px, 1fr));
+  overflow-x: auto;
+}
+
+.followup-column {
+  background: #f7f2ea;
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 0.7rem;
+  min-width: 210px;
+  padding: 0.85rem;
+}
+
+.followup-column header,
+.task-meta {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.followup-column header span {
+  background: var(--ink);
+  color: var(--paper);
+  display: inline-flex;
+  font-size: 0.78rem;
+  justify-content: center;
+  min-width: 26px;
+  padding: 0.22rem 0.45rem;
+}
+
+.followup-task {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  display: grid;
+  gap: 0.42rem;
+  padding: 0.72rem;
+}
+
+.followup-task p {
+  color: var(--muted);
+  margin-bottom: 0;
+}
+
+.followup-task small,
+.task-meta > span:first-child {
+  color: var(--muted);
+}
+
 .admin-drawer-backdrop {
   background: rgba(31, 30, 27, 0.42);
   bottom: 0;
@@ -1503,6 +1570,41 @@ p, li {
 .case-edit-hero img {
   aspect-ratio: 4 / 3;
   width: 100%;
+}
+
+.settings-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.settings-card {
+  background: #f7f2ea;
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+.settings-card h3 {
+  margin-bottom: 0;
+}
+
+.settings-card label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.settings-card span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.settings-card input {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  min-height: 42px;
+  padding: 0 0.7rem;
 }
 
 .funnel {
@@ -1761,13 +1863,16 @@ blockquote {
   }
 
   .lead-table-head,
-  .lead-table-row {
+  .lead-table-row,
+  .case-management-head,
+  .case-management-row {
     min-width: 980px;
   }
 
   .lead-filters,
   .profile-grid,
-  .diagnosis-record {
+  .diagnosis-record,
+  .settings-grid {
     grid-template-columns: 1fr;
   }
 }
