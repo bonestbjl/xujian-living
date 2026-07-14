@@ -4,7 +4,11 @@ import { getOrCreateDeviceId } from "./device";
 export type ScopedDataType =
   | "diagnosis"
   | "diagnosis_draft"
+  | "currentDiagnosis"
+  | "diagnosisRecords"
   | "budget"
+  | "currentBudget"
+  | "budgetRecords"
   | "leads"
   | "activities"
   | "followUps"

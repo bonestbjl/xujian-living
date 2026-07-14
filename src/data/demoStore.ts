@@ -38,25 +38,28 @@ function metadataLabel(metadata: ActivityRecord["metadata"]) {
   return Object.values(metadata).filter((value) => typeof value === "string" && value).join(" · ") || "本机浏览记录";
 }
 
-function latestForDevice<T extends { deviceId: string; createdAt: string }>(records: T[], deviceId: string) {
-  return records
-    .filter((record) => record.deviceId === deviceId)
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
-}
-
 function toAdminLead(
   lead: LeadRecord,
   diagnoses: DiagnosisRecord[],
   budgets: BudgetRecord[],
   localActivities: ActivityRecord[]
 ): AdminLead {
-  const diagnosis = latestForDevice(diagnoses, lead.deviceId);
-  const budget = latestForDevice(budgets, lead.deviceId);
+  const diagnosis = lead.diagnosisSessionId
+    ? diagnoses.find((record) => record.diagnosisSessionId === lead.diagnosisSessionId)
+    : diagnoses.filter((record) => record.deviceId === lead.deviceId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+  const budget = lead.budgetSessionId
+    ? budgets.find((record) => record.budgetSessionId === lead.budgetSessionId)
+    : budgets.filter((record) => record.deviceId === lead.deviceId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
   const answers = diagnosis?.answers ?? {};
   const answerList = (key: string) => Array.isArray(answers[key]) ? answers[key].filter((item): item is string => typeof item === "string") : [];
   const answerText = (key: string, fallback: string) => typeof answers[key] === "string" ? answers[key] as string : fallback;
-  const viewedCases = Array.from(new Set(localActivities
-    .filter((activity) => activity.deviceId === lead.deviceId && activity.type === "case_view" && activity.caseId)
+  const associatedActivities = localActivities.filter((activity) =>
+    activity.leadId === lead.id ||
+    Boolean(lead.diagnosisSessionId && activity.diagnosisSessionId === lead.diagnosisSessionId) ||
+    Boolean(lead.budgetSessionId && activity.budgetSessionId === lead.budgetSessionId)
+  );
+  const viewedCases = Array.from(new Set(associatedActivities
+    .filter((activity) => activity.type === "case_view" && activity.caseId)
     .map((activity) => activity.caseId as string)));
   const score = Math.min(98, 45 + (diagnosis ? 20 : 0) + (budget ? 15 : 0) + Math.min(12, viewedCases.length * 4));
 
@@ -64,6 +67,10 @@ function toAdminLead(
     merchantId: lead.merchantId,
     deviceId: lead.deviceId,
     id: lead.id,
+    diagnosisSessionId: lead.diagnosisSessionId || diagnosis?.diagnosisSessionId || "",
+    budgetSessionId: lead.budgetSessionId || budget?.budgetSessionId || "",
+    hasDiagnosisRecord: Boolean(diagnosis),
+    hasBudgetRecord: Boolean(budget),
     name: lead.name,
     phone: lead.phone,
     wechat: lead.wechat || "未填写",
@@ -94,7 +101,7 @@ function toAdminLead(
     source: lead.source,
     createdAt: lead.createdAt,
     updatedAt: lead.updatedAt,
-    lastActivityAt: localActivities.find((activity) => activity.deviceId === lead.deviceId)?.createdAt ?? lead.updatedAt,
+    lastActivityAt: associatedActivities.sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]?.createdAt ?? lead.updatedAt,
     nextFollowUpAt: lead.updatedAt,
     uploadedPlan: { name: "", url: "", viewed: false },
     viewedCases,
@@ -116,12 +123,18 @@ function initialData(merchantId = getCurrentMerchantId()): AdminDemoData {
   const localLeads = local.leads
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
     .map((lead) => toAdminLead(lead, local.diagnoses, local.budgets, local.activities));
-  const leadByDevice = new Map(localLeads.map((lead) => [lead.deviceId, lead.id]));
+  const leadByDiagnosisSession = new Map(localLeads.filter((lead) => lead.diagnosisSessionId).map((lead) => [lead.diagnosisSessionId, lead.id]));
+  const leadByBudgetSession = new Map(localLeads.filter((lead) => lead.budgetSessionId).map((lead) => [lead.budgetSessionId, lead.id]));
   const localActivities: Activity[] = local.activities.map((activity) => ({
     merchantId: activity.merchantId,
     deviceId: activity.deviceId,
     id: activity.id,
-    leadId: activity.leadId ?? leadByDevice.get(activity.deviceId) ?? "unlinked-local-lead",
+    leadId: activity.leadId
+      ?? (activity.diagnosisSessionId ? leadByDiagnosisSession.get(activity.diagnosisSessionId) : undefined)
+      ?? (activity.budgetSessionId ? leadByBudgetSession.get(activity.budgetSessionId) : undefined)
+      ?? "unlinked-local-lead",
+    diagnosisSessionId: activity.diagnosisSessionId,
+    budgetSessionId: activity.budgetSessionId,
     type: activity.type,
     page: activity.page,
     caseId: activity.caseId,

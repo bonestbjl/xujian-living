@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { ClipboardCheck, FileText, Home, Images, Menu, MessageCircle, X } from "lucide-react";
 import { brand } from "../config/brand";
 import { contact } from "../config/contact";
+import { startNewBudgetSession, startNewDiagnosisSession } from "../data/localRecords";
 import { LeadForm } from "./LeadForm";
 
 const nav = [
@@ -28,10 +29,10 @@ export function Layout() {
         </Link>
         <nav className="desktop-nav">
           {nav.map(([label, path]) => (
-            <NavLink key={path} to={path}>{label}</NavLink>
+            <NavLink key={path} to={path} onClick={path === "/budget" ? startNewBudgetSession : undefined}>{label}</NavLink>
           ))}
         </nav>
-        <NavLink className="button small dark nav-cta" to="/diagnosis">开始空间诊断</NavLink>
+        <NavLink className="button small dark nav-cta" to="/diagnosis" onClick={startNewDiagnosisSession}>开始空间诊断</NavLink>
         <button className="icon-button mobile-only" onClick={() => setMenuOpen(true)} aria-label="打开菜单">
           <Menu />
         </button>
@@ -43,9 +44,9 @@ export function Layout() {
             <X />
           </button>
           {nav.map(([label, path]) => (
-            <NavLink key={path} to={path} onClick={() => setMenuOpen(false)}>{label}</NavLink>
+            <NavLink key={path} to={path} onClick={() => { if (path === "/budget") startNewBudgetSession(); setMenuOpen(false); }}>{label}</NavLink>
           ))}
-          <NavLink to="/diagnosis" onClick={() => setMenuOpen(false)}>开始空间诊断</NavLink>
+          <NavLink to="/diagnosis" onClick={() => { startNewDiagnosisSession(); setMenuOpen(false); }}>开始空间诊断</NavLink>
         </div>
       )}
       <main>
@@ -67,7 +68,7 @@ export function Layout() {
       )}
       <nav className="bottom-tabs">
         <NavLink to="/"><Home size={18} />首页</NavLink>
-        <NavLink to="/diagnosis"><ClipboardCheck size={18} />诊断</NavLink>
+        <NavLink to="/diagnosis" onClick={startNewDiagnosisSession}><ClipboardCheck size={18} />诊断</NavLink>
         <NavLink to="/cases"><Images size={18} />案例</NavLink>
         <NavLink to="/diagnosis/result"><FileText size={18} />我的结果</NavLink>
         <button onClick={() => setLeadOpen(true)}><MessageCircle size={18} />咨询</button>

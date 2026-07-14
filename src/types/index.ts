@@ -88,6 +88,8 @@ export interface LeadRecord {
   merchantId: string;
   deviceId: string;
   id: string;
+  diagnosisSessionId: string;
+  budgetSessionId: string;
   name: string;
   phone: string;
   wechat: string;
@@ -108,6 +110,8 @@ export interface LeadRecord {
 }
 
 export interface DiagnosisRecord {
+  id: string;
+  diagnosisSessionId: string;
   merchantId: string;
   deviceId: string;
   answers: Record<string, unknown>;
@@ -117,6 +121,8 @@ export interface DiagnosisRecord {
 }
 
 export interface BudgetRecord {
+  id: string;
+  budgetSessionId: string;
   merchantId: string;
   deviceId: string;
   selectedSpaces: string[];
@@ -132,11 +138,32 @@ export interface ActivityRecord {
   deviceId: string;
   id: string;
   leadId?: string;
+  diagnosisSessionId?: string;
+  budgetSessionId?: string;
   type: "page_view" | "diagnosis_start" | "diagnosis_complete" | "case_view" | "budget_complete" | "plan_upload" | "lead_submit" | "case_sent";
   page: string;
   caseId?: string;
   metadata: Record<string, unknown> | string;
   createdAt: string;
+}
+
+export interface CurrentDiagnosisRecord {
+  diagnosisSessionId: string;
+  currentStep: number;
+  answers: Record<string, unknown>;
+  updatedAt: string;
+  completed: boolean;
+}
+
+export interface CurrentBudgetRecord {
+  budgetSessionId: string;
+  currentStep: number;
+  area: number;
+  selectedSpaces: string[];
+  customLevel: string;
+  materialLevel: string;
+  updatedAt: string;
+  completed: boolean;
 }
 
 export interface FollowUpRecord {

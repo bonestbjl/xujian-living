@@ -13,6 +13,10 @@ export interface AdminLead {
   merchantId: string;
   deviceId: string;
   id: string;
+  diagnosisSessionId: string;
+  budgetSessionId: string;
+  hasDiagnosisRecord: boolean;
+  hasBudgetRecord: boolean;
   name: string;
   phone: string;
   wechat: string;
@@ -59,6 +63,8 @@ export interface Activity {
   deviceId: string;
   id: string;
   leadId: string;
+  diagnosisSessionId?: string;
+  budgetSessionId?: string;
   type: "page_view" | "diagnosis_start" | "diagnosis_complete" | "case_view" | "budget_complete" | "plan_upload" | "lead_submit" | "case_sent";
   page: string;
   caseId?: string;
@@ -131,6 +137,10 @@ export const adminLeads: AdminLead[] = Array.from({ length: 30 }, (_, index) => 
     merchantId,
     deviceId: `mock-device-${merchantId}`,
     id: `lead-${String(index + 1).padStart(2, "0")}`,
+    diagnosisSessionId: `mock-diag-${String(index + 1).padStart(2, "0")}`,
+    budgetSessionId: `mock-budget-${String(index + 1).padStart(2, "0")}`,
+    hasDiagnosisRecord: true,
+    hasBudgetRecord: true,
     name: names[index % names.length],
     phone: `${["138", "159", "186", "137", "177"][index % 5]}****${String(3200 + index * 137).slice(-4)}`,
     wechat: `xujian_demo_${String(index + 1).padStart(2, "0")}`,

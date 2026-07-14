@@ -15,7 +15,22 @@ import { materialCards, processSteps } from "./data/materials";
 import { estimateBudget, type BudgetLevel, type MaterialLevel } from "./data/budgetRules";
 import { salesPeople, type Activity, type AdminLead, type FollowUp } from "./data/admin";
 import { loadAdminDemoData, resetAdminDemoData, saveAdminDemoData } from "./data/demoStore";
-import { saveActivity, saveBudgetRecord, saveDiagnosisDraft, saveDiagnosisRecord, loadDiagnosisDraft, saveFollowUpRecord } from "./data/localRecords";
+import {
+  getCurrentDiagnosis,
+  getDeviceDiagnosisRecords,
+  getDeviceLeadRecords,
+  getLatestDiagnosisRecord,
+  getOrCreateCurrentBudget,
+  getOrCreateCurrentDiagnosis,
+  saveActivity,
+  saveBudgetRecord,
+  saveCurrentBudget,
+  saveCurrentDiagnosis,
+  saveDiagnosisRecord,
+  saveFollowUpRecord,
+  startNewBudgetSession,
+  startNewDiagnosisSession
+} from "./data/localRecords";
 import { matchCases, type MatchInput } from "./utils/match";
 import { intentLabels, leadStatusLabels } from "./config/leadScoring";
 import { getCurrentMerchant, merchants, setCurrentMerchantId } from "./config/merchant";
@@ -49,25 +64,27 @@ interface DiagnosisState {
 }
 
 const defaultDiagnosis: DiagnosisState = {
-  layout: "三室两厅",
-  areaRange: "100–120㎡",
-  members: ["伴侣", "一个孩子"],
-  habits: ["经常居家办公", "孩子会在客厅活动"],
-  storageNeeds: ["鞋子很多", "小家电需要集中收纳"],
-  messySpaces: ["玄关", "餐厅", "儿童房"],
-  problems: ["鞋子没有地方放", "小家电占满餐桌", "没有固定办公区"],
-  futureChanges: ["孩子即将上学", "居家办公增加"],
-  style: "现代原木",
-  priority: "先把空间规划好",
-  budgetPreference: "设计与品质平衡"
+  layout: "",
+  areaRange: "",
+  members: [],
+  habits: [],
+  storageNeeds: [],
+  messySpaces: [],
+  problems: [],
+  futureChanges: [],
+  style: "",
+  priority: "",
+  budgetPreference: ""
 };
 
-function loadDiagnosis(): DiagnosisState {
-  return { ...defaultDiagnosis, ...loadDiagnosisDraft<Partial<DiagnosisState>>({}) };
+function diagnosisStateFromAnswers(answers: Record<string, unknown>): DiagnosisState {
+  return { ...defaultDiagnosis, ...answers } as DiagnosisState;
 }
 
-function saveDiagnosis(input: DiagnosisState) {
-  saveDiagnosisDraft(input);
+function loadDiagnosisResult(): DiagnosisState {
+  const current = getCurrentDiagnosis();
+  const answers = current?.completed ? current.answers : getLatestDiagnosisRecord()?.answers;
+  return diagnosisStateFromAnswers(answers ?? {});
 }
 
 function getDiagnosisFamily(input: DiagnosisState) {
@@ -177,7 +194,7 @@ function HomePage() {
         <h1>你的家，不该被标准答案定义。</h1>
         <p>从户型、家庭成员到生活习惯，先找到真正需要解决的问题，再开始设计。</p>
         <div className="button-row">
-          <Link className="button light" to="/diagnosis">开始空间诊断</Link>
+          <Link className="button light" to="/diagnosis" onClick={startNewDiagnosisSession}>开始空间诊断</Link>
           <Link className="button outline-light" to="/cases">查看真实案例</Link>
         </div>
         <p className="hero-note">已整理 {brand.solutionCount} 套不同家庭结构与户型需求的设计方案</p>
@@ -215,8 +232,15 @@ function DesignerSection() {
 
 function DiagnosisPage() {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1);
-  const [input, setInput] = useState<DiagnosisState>(() => loadDiagnosis());
+  const [flow, setFlow] = useState(() => {
+    const current = getOrCreateCurrentDiagnosis();
+    return {
+      diagnosisSessionId: current.diagnosisSessionId,
+      step: current.currentStep,
+      input: diagnosisStateFromAnswers(current.answers)
+    };
+  });
+  const { diagnosisSessionId, step, input } = flow;
   const stepsTotal = 8;
   const styleImages = [
     images.diagnosisModernWood,
@@ -228,20 +252,33 @@ function DiagnosisPage() {
   ];
 
   useEffect(() => {
-    saveDiagnosis(input);
-  }, [input]);
+    saveCurrentDiagnosis(diagnosisSessionId, step, { ...input });
+  }, [diagnosisSessionId, input, step]);
+
+  useEffect(() => {
+    const resetFlow = (event: Event) => {
+      const current = (event as CustomEvent<ReturnType<typeof startNewDiagnosisSession>>).detail;
+      setFlow({
+        diagnosisSessionId: current.diagnosisSessionId,
+        step: 1,
+        input: diagnosisStateFromAnswers(current.answers)
+      });
+    };
+    window.addEventListener("xujian:diagnosis-session-start", resetFlow);
+    return () => window.removeEventListener("xujian:diagnosis-session-start", resetFlow);
+  }, []);
 
   const next = () => {
-    if (step < stepsTotal) setStep(step + 1);
+    if (step < stepsTotal) setFlow((current) => ({ ...current, step: current.step + 1 }));
     else {
-      saveDiagnosis(input);
       const recommendedCases = matchCases(cases, diagnosisToMatchInput(input)).slice(0, 3).map(({ item }) => item.id);
       const resultType = "成长型 · 高收纳需求家庭";
-      saveDiagnosisRecord({ ...input }, resultType, recommendedCases);
+      saveDiagnosisRecord(diagnosisSessionId, { ...input }, resultType, recommendedCases);
       saveActivity({
+        diagnosisSessionId,
         type: "diagnosis_complete",
         page: "诊断结果",
-        metadata: { resultType, recommendedCases }
+        metadata: { diagnosisSessionId, resultType, recommendedCases }
       });
       navigate("/diagnosis/result");
     }
@@ -260,7 +297,7 @@ function DiagnosisPage() {
             <PillPicker
               options={["两室一厅", "两室两厅", "三室两厅", "四室两厅", "大平层", "复式"]}
               value={input.layout}
-              onChange={(v) => setInput({ ...input, layout: v as string })}
+              onChange={(v) => setFlow((current) => ({ ...current, input: { ...current.input, layout: v as string } }))}
             />
           </WizardStep>
         )}
@@ -271,7 +308,7 @@ function DiagnosisPage() {
               multi
               options={["自己", "伴侣", "一个孩子", "两个及以上孩子", "父母", "宠物"]}
               value={input.members}
-              onChange={(v) => setInput({ ...input, members: v as string[] })}
+              onChange={(v) => setFlow((current) => ({ ...current, input: { ...current.input, members: v as string[] } }))}
               maxSelections={6}
             />
           </WizardStep>
@@ -283,7 +320,7 @@ function DiagnosisPage() {
               multi
               options={["经常居家办公", "每天做饭", "常在家喝咖啡", "孩子会在客厅活动", "父母偶尔长住", "有宠物", "朋友经常来家里"]}
               value={input.habits}
-              onChange={(v) => setInput({ ...input, habits: v as string[] })}
+              onChange={(v) => setFlow((current) => ({ ...current, input: { ...current.input, habits: v as string[] } }))}
               maxSelections={3}
             />
           </WizardStep>
@@ -295,7 +332,7 @@ function DiagnosisPage() {
               multi
               options={["鞋子很多", "衣服很多", "换季被褥", "小家电需要集中收纳", "玩具绘本", "清洁用品", "宠物用品", "文件和办公设备"]}
               value={input.storageNeeds}
-              onChange={(v) => setInput({ ...input, storageNeeds: v as string[] })}
+              onChange={(v) => setFlow((current) => ({ ...current, input: { ...current.input, storageNeeds: v as string[] } }))}
               maxSelections={4}
             />
           </WizardStep>
@@ -307,7 +344,7 @@ function DiagnosisPage() {
               multi
               options={["鞋子没有地方放", "衣服很多", "换季被褥没地方收", "小家电占满餐桌", "孩子玩具到处都是", "没有固定办公区", "清洁用品无处安放", "家里柜子很多但不好用", "东西经常找不到", "空间看起来拥挤"]}
               value={input.problems}
-              onChange={(v) => setInput({ ...input, problems: v as string[] })}
+              onChange={(v) => setFlow((current) => ({ ...current, input: { ...current.input, problems: v as string[] } }))}
               maxSelections={10}
             />
           </WizardStep>
@@ -317,7 +354,7 @@ function DiagnosisPage() {
           <WizardStep title="你更希望家是什么感觉？">
             <div className="style-grid">
               {["现代原木", "奶油自然", "现代极简", "中古", "意式现代", "自然松弛"].map((style, index) => (
-                <button className={input.style === style ? "style-card selected" : "style-card"} onClick={() => setInput({ ...input, style })} key={style}>
+                <button className={input.style === style ? "style-card selected" : "style-card"} onClick={() => setFlow((current) => ({ ...current, input: { ...current.input, style } }))} key={style}>
                   <img src={styleImages[index]} alt={style} />
                   <span>{style}</span>
                 </button>
@@ -333,7 +370,7 @@ function DiagnosisPage() {
               multi
               options={["玄关", "客厅", "餐厅", "厨房", "主卧", "儿童房", "书房", "阳台", "到处都乱"]}
               value={input.messySpaces}
-              onChange={(v) => setInput({ ...input, messySpaces: v as string[] })}
+              onChange={(v) => setFlow((current) => ({ ...current, input: { ...current.input, messySpaces: v as string[] } }))}
               maxSelections={3}
             />
           </WizardStep>
@@ -344,13 +381,13 @@ function DiagnosisPage() {
             <PillPicker
               options={["先把空间规划好", "实用优先", "设计与品质平衡", "高阶质感", "严格控制预算", "后期落地效果更重要"]}
               value={input.budgetPreference}
-              onChange={(v) => setInput({ ...input, budgetPreference: v as string, priority: v as string })}
+              onChange={(v) => setFlow((current) => ({ ...current, input: { ...current.input, budgetPreference: v as string, priority: v as string } }))}
             />
           </WizardStep>
         )}
 
         <div className="wizard-actions">
-          {step > 1 && <button className="button ghost" onClick={() => setStep(step - 1)}>上一步</button>}
+          {step > 1 && <button className="button ghost" onClick={() => setFlow((current) => ({ ...current, step: current.step - 1 }))}>上一步</button>}
           <button className="button dark" onClick={next}>{step === stepsTotal ? "查看诊断结果" : "下一步"}</button>
         </div>
       </div>
@@ -360,7 +397,7 @@ function DiagnosisPage() {
 
 function DiagnosisResultPage() {
   const { openLead } = useLead();
-  const [input] = useState<DiagnosisState>(() => loadDiagnosis());
+  const [input] = useState<DiagnosisState>(loadDiagnosisResult);
   const matchInput = useMemo(() => diagnosisToMatchInput(input), [input]);
   const results = useMemo(() => matchCases(cases, matchInput).slice(0, 3), [matchInput]);
   const judgements = getDiagnosisJudgements(input);
@@ -471,7 +508,7 @@ function DiagnosisResultPage() {
             <span className="eyebrow">BUDGET</span>
             <h3>{input.budgetPreference.includes("严格") ? "先控制定制范围" : "建议先做完整规划"}</h3>
             <p>优先确认玄关、餐厅、主卧和重点空间的柜体范围，再根据材料和五金选择拉开预算区间。</p>
-            <Link className="text-link" to="/budget">进入预算规划</Link>
+            <Link className="text-link" to="/budget" onClick={startNewBudgetSession}>进入预算规划</Link>
           </article>
         </div>
       </section>
@@ -480,7 +517,8 @@ function DiagnosisResultPage() {
         <h2>下一步，把诊断结果发给设计师，看看你的户型能怎么落地。</h2>
         <div className="button-row center">
           <Link className="button light" to="/cases">查看推荐案例</Link>
-          <Link className="button outline-light" to="/budget">规划我的预算</Link>
+          <Link className="button outline-light" to="/diagnosis" onClick={startNewDiagnosisSession}>重新诊断</Link>
+          <Link className="button outline-light" to="/budget" onClick={startNewBudgetSession}>规划我的预算</Link>
           <button className="button outline-light" onClick={openLead}>上传户型 / 提交需求</button>
         </div>
       </section>
@@ -686,7 +724,7 @@ function LifestylePage() {
           <h2>高收纳需求 · 成长型家庭</h2>
           {["建立玄关回家动线", "把餐厅作为家庭第二储物中心", "儿童房采用成长型家具规划", "提前设计家政用品与清洁设备位置", "减少开放格比例，控制视觉杂乱"].map((item) => <p key={item}><Check size={17} />{item}</p>)}
           <div className="case-grid">{cases.slice(0, 3).map((item) => <CaseCard item={item} key={item.id} />)}</div>
-          <Link className="button dark" to="/diagnosis">进一步诊断我的户型</Link>
+          <Link className="button dark" to="/diagnosis" onClick={startNewDiagnosisSession}>进一步诊断我的户型</Link>
         </div>
       )}
     </section>
@@ -695,16 +733,37 @@ function LifestylePage() {
 
 function BudgetPage() {
   const { openLead } = useLead();
-  const [step, setStep] = useState(1);
-  const [area, setArea] = useState(118);
-  const [spaces, setSpaces] = useState<string[]>(["玄关", "餐厅", "主卧", "儿童房"]);
-  const [level, setLevel] = useState<BudgetLevel>("完整规划");
-  const [material, setMaterial] = useState<MaterialLevel>("设计与品质平衡");
+  const [initialBudget] = useState(getOrCreateCurrentBudget);
+  const [budgetSessionId, setBudgetSessionId] = useState(initialBudget.budgetSessionId);
+  const [step, setStep] = useState(initialBudget.currentStep);
+  const [area, setArea] = useState(initialBudget.area);
+  const [spaces, setSpaces] = useState<string[]>(initialBudget.selectedSpaces);
+  const [level, setLevel] = useState<BudgetLevel>(initialBudget.customLevel as BudgetLevel);
+  const [material, setMaterial] = useState<MaterialLevel>(initialBudget.materialLevel as MaterialLevel);
   const result = estimateBudget(area, spaces, level, material);
+
+  useEffect(() => {
+    saveCurrentBudget({ budgetSessionId, currentStep: step, area, selectedSpaces: spaces, customLevel: level, materialLevel: material });
+  }, [area, budgetSessionId, level, material, spaces, step]);
+
+  useEffect(() => {
+    const resetFlow = (event: Event) => {
+      const current = (event as CustomEvent<ReturnType<typeof startNewBudgetSession>>).detail;
+      setBudgetSessionId(current.budgetSessionId);
+      setStep(current.currentStep);
+      setArea(current.area);
+      setSpaces(current.selectedSpaces);
+      setLevel(current.customLevel as BudgetLevel);
+      setMaterial(current.materialLevel as MaterialLevel);
+    };
+    window.addEventListener("xujian:budget-session-start", resetFlow);
+    return () => window.removeEventListener("xujian:budget-session-start", resetFlow);
+  }, []);
+
   const completeBudget = () => {
     const resultRange = `¥${result.low.toLocaleString()}–¥${result.high.toLocaleString()}`;
-    saveBudgetRecord({ area, selectedSpaces: spaces, customLevel: level, materialLevel: material, resultRange });
-    saveActivity({ type: "budget_complete", page: "预算规划", metadata: { resultRange, area } });
+    saveBudgetRecord({ area, selectedSpaces: spaces, customLevel: level, materialLevel: material, resultRange }, budgetSessionId);
+    saveActivity({ budgetSessionId, type: "budget_complete", page: "预算规划", metadata: { budgetSessionId, resultRange, area } });
     setStep(4);
   };
   return (
@@ -1293,15 +1352,18 @@ function AdminLeadDetailPage() {
 
           <section className="admin-panel">
             <div className="panel-title"><h2>诊断记录</h2><span>完整答题结果</span></div>
-            <div className="diagnosis-record">
-              <InfoBlock label="Q1 房屋面积" value={lead.area} />
-              <InfoBlock label="Q2 家庭成员" value={lead.familyMembers.join("、")} />
-              <InfoBlock label="Q3 最容易乱的位置" value={lead.messySpaces.join("、")} />
-              <InfoBlock label="Q4 当前问题" value={lead.painPoints.join("、")} />
-              <InfoBlock label="Q5 未来变化" value={lead.futureChanges.join("、")} />
-              <InfoBlock label="Q6 风格" value={lead.stylePreference} />
-              <InfoBlock label="Q7 最关心" value={lead.mainConcern} />
-            </div>
+            {lead.hasDiagnosisRecord ? (
+              <div className="diagnosis-record">
+                <InfoBlock label="诊断 session" value={lead.diagnosisSessionId} />
+                <InfoBlock label="Q1 房屋面积" value={lead.area} />
+                <InfoBlock label="Q2 家庭成员" value={lead.familyMembers.join("、")} />
+                <InfoBlock label="Q3 最容易乱的位置" value={lead.messySpaces.join("、")} />
+                <InfoBlock label="Q4 当前问题" value={lead.painPoints.join("、")} />
+                <InfoBlock label="Q5 未来变化" value={lead.futureChanges.join("、")} />
+                <InfoBlock label="Q6 风格" value={lead.stylePreference} />
+                <InfoBlock label="Q7 最关心" value={lead.mainConcern} />
+              </div>
+            ) : <p className="muted">暂无记录</p>}
           </section>
 
           <section className="admin-panel">
@@ -1338,10 +1400,15 @@ function AdminLeadDetailPage() {
 
           <section className="admin-panel">
             <div className="panel-title"><h2>预算记录</h2><span>自助测算</span></div>
-            <p>{lead.budgetResult.area} · {lead.budgetResult.spaces.join("、")}</p>
-            <p>{lead.budgetResult.level} · {lead.budgetResult.material}</p>
-            <strong className="budget-number">{lead.budgetResult.range}</strong>
-            <p className="fineprint">这是客户自助预算测算结果，不是正式报价。</p>
+            {lead.hasBudgetRecord ? (
+              <>
+                <p className="muted">session：{lead.budgetSessionId}</p>
+                <p>{lead.budgetResult.area} · {lead.budgetResult.spaces.join("、")}</p>
+                <p>{lead.budgetResult.level} · {lead.budgetResult.material}</p>
+                <strong className="budget-number">{lead.budgetResult.range}</strong>
+                <p className="fineprint">这是客户自助预算测算结果，不是正式报价。</p>
+              </>
+            ) : <p className="muted">暂无记录</p>}
           </section>
 
           <section className="admin-panel">
@@ -1787,9 +1854,13 @@ export function AdminCaseDetailPage() {
 
 function AdminSettingsPage() {
   const { clearCurrentDeviceData } = useAdminDemo();
+  const navigate = useNavigate();
   const [message, setMessage] = useState("");
   const merchant = getCurrentMerchant();
   const deviceId = getOrCreateDeviceId();
+  const currentDiagnosis = getCurrentDiagnosis();
+  const diagnosisCount = getDeviceDiagnosisRecords().length;
+  const deviceLeadCount = getDeviceLeadRecords().length;
   const settingGroups = [
     { title: "品牌设置", fields: [["品牌名称", "叙间全屋定制"], ["前台 CTA", "预约免费空间诊断"], ["品牌定位", "高品质全屋定制与收纳规划"]] },
     { title: "联系方式", fields: [["咨询电话", "Demo 电话未启用"], ["微信", "xujian_demo"], ["客服时段", "演示用 09:30-20:00"]] },
@@ -1812,12 +1883,20 @@ function AdminSettingsPage() {
           <article className="settings-card merchant-settings-card">
             <div>
               <span className="eyebrow">LOCAL DATA SCOPE</span>
-              <h3>当前演示商家</h3>
+              <h3>当前数据环境</h3>
             </div>
             <div className="merchant-meta">
               <p><span>merchantId</span><strong>{merchant.merchantId}</strong></p>
               <p><span>merchantName</span><strong>{merchant.merchantName}</strong></p>
               <p><span>deviceId</span><strong>{deviceId}</strong></p>
+              <p><span>当前未完成诊断 session</span><strong>{currentDiagnosis && !currentDiagnosis.completed ? currentDiagnosis.diagnosisSessionId : "暂无"}</strong></p>
+              <p><span>历史诊断数量</span><strong>{diagnosisCount}</strong></p>
+              <p><span>本设备线索数量</span><strong>{deviceLeadCount}</strong></p>
+            </div>
+            <div className="merchant-switch-actions">
+              <button className="button dark" onClick={() => { startNewDiagnosisSession(); navigate("/diagnosis"); }}>
+                新建一次诊断测试
+              </button>
             </div>
             <div className="merchant-switch-actions">
               {merchants.map((item) => (
@@ -1835,7 +1914,7 @@ function AdminSettingsPage() {
             </div>
             <div className="merchant-danger-zone">
               <div>
-                <strong>清空当前商家本机测试数据</strong>
+                <strong>清空当前设备测试数据</strong>
                 <p>仅删除当前 merchantId 与当前 deviceId 下的记录，其他商家和 mock 数据不受影响。</p>
               </div>
               <button
@@ -1846,7 +1925,7 @@ function AdminSettingsPage() {
                   setMessage("当前商家在本机产生的测试数据已清空，mock 数据仍保留。");
                 }}
               >
-                清空当前商家本机测试数据
+                清空当前设备测试数据
               </button>
             </div>
             {message && <p className="demo-action-message" role="status">{message}</p>}
@@ -1866,6 +1945,15 @@ function AdminSettingsPage() {
       </section>
     </div>
   );
+}
+
+function DiagnosisStartRedirect() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    startNewDiagnosisSession();
+    navigate("/diagnosis", { replace: true });
+  }, [navigate]);
+  return null;
 }
 
 function PageHero({ eyebrow, title, body }: { eyebrow: string; title: string; body: string }) {
@@ -1897,7 +1985,7 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/diagnosis" element={<DiagnosisPage />} />
         <Route path="/diagnosis/result" element={<DiagnosisResultPage />} />
-        <Route path="/find-solution" element={<Navigate to="/diagnosis" replace />} />
+        <Route path="/find-solution" element={<DiagnosisStartRedirect />} />
         <Route path="/cases" element={<CasesPage />} />
         <Route path="/cases/:id" element={<CaseDetailPage />} />
         <Route path="/inspiration" element={<InspirationPage />} />
