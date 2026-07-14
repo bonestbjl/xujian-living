@@ -18,8 +18,13 @@ const nav = [
 export function Layout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [leadOpen, setLeadOpen] = useState(false);
+  const [leadSourcePage, setLeadSourcePage] = useState("全站咨询入口");
   const location = useLocation();
   const showFooter = location.pathname !== "/";
+  const openLead = (sourcePage = "全站咨询入口") => {
+    setLeadSourcePage(sourcePage);
+    setLeadOpen(true);
+  };
   return (
     <>
       <header className="site-header">
@@ -50,7 +55,7 @@ export function Layout() {
         </div>
       )}
       <main>
-        <Outlet context={{ openLead: () => setLeadOpen(true) }} />
+        <Outlet context={{ openLead }} />
       </main>
       {showFooter && (
         <footer className="site-footer">
@@ -71,9 +76,9 @@ export function Layout() {
         <NavLink to="/diagnosis" onClick={startNewDiagnosisSession}><ClipboardCheck size={18} />诊断</NavLink>
         <NavLink to="/cases"><Images size={18} />案例</NavLink>
         <NavLink to="/diagnosis/result"><FileText size={18} />我的结果</NavLink>
-        <button onClick={() => setLeadOpen(true)}><MessageCircle size={18} />咨询</button>
+        <button onClick={() => openLead()}><MessageCircle size={18} />咨询</button>
       </nav>
-      <LeadForm open={leadOpen} onClose={() => setLeadOpen(false)} sourcePage="全站咨询入口" />
+      <LeadForm open={leadOpen} onClose={() => setLeadOpen(false)} sourcePage={leadSourcePage} />
     </>
   );
 }

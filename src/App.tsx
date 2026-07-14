@@ -53,7 +53,7 @@ import {
   type ContentTopicType
 } from "./data/contentTopics";
 
-type OutletTools = { openLead: () => void };
+type OutletTools = { openLead: (sourcePage?: string) => void };
 
 const areaOptions = ["80㎡以下", "80–100㎡", "100–120㎡", "120–150㎡", "150㎡以上"];
 
@@ -164,7 +164,7 @@ function diagnosisToMatchInput(input: DiagnosisState): MatchInput {
     ["柜子", "强收纳"],
     ["宠物", "宠物"]
   ];
-  const joined = [...input.problems, ...input.futureChanges, ...input.messySpaces, ...input.habits, ...input.storageNeeds].join(" ");
+  const joined = [...input.members, ...input.problems, ...input.futureChanges, ...input.messySpaces, ...input.habits, ...input.storageNeeds].join(" ");
   const needs = needMap.filter(([key]) => joined.includes(key)).map(([, value]) => value);
   return {
     areaRange: input.areaRange,
@@ -403,10 +403,10 @@ function DiagnosisPage() {
           <WizardStep title="哪些生活习惯最像你家？" label={stepMeta.label} description={stepMeta.description}>
             <PillPicker
               multi
-              options={["经常居家办公", "每天做饭", "常在家喝咖啡", "孩子会在客厅活动", "父母偶尔长住", "有宠物", "朋友经常来家里"]}
+              options={["经常居家办公", "每天做饭", "常在家喝咖啡", "孩子会在客厅活动", "父母偶尔长住", "经常网购囤货", "喜欢保持台面清爽", "朋友经常来家里", "其他"]}
               value={input.habits}
               onChange={(v) => setFlow((current) => ({ ...current, input: { ...current.input, habits: v as string[] } }))}
-              maxSelections={3}
+              maxSelections={4}
             />
           </WizardStep>
         )}
@@ -415,10 +415,10 @@ function DiagnosisPage() {
           <WizardStep title="收纳最需要解决什么？" label={stepMeta.label} description={stepMeta.description}>
             <PillPicker
               multi
-              options={["鞋子很多", "衣服很多", "换季被褥", "小家电需要集中收纳", "玩具绘本", "清洁用品", "宠物用品", "文件和办公设备"]}
+              options={["鞋子很多", "衣服很多", "换季被褥", "小家电需要集中收纳", "玩具绘本", "清洁用品", "宠物用品", "文件和办公设备", "其他"]}
               value={input.storageNeeds}
               onChange={(v) => setFlow((current) => ({ ...current, input: { ...current.input, storageNeeds: v as string[] } }))}
-              maxSelections={4}
+              maxSelections={5}
             />
           </WizardStep>
         )}
@@ -427,10 +427,10 @@ function DiagnosisPage() {
           <WizardStep title="下面哪些问题最像你家？" label={stepMeta.label} description={stepMeta.description}>
             <PillPicker
               multi
-              options={["鞋子没有地方放", "衣服很多", "换季被褥没地方收", "小家电占满餐桌", "孩子玩具到处都是", "没有固定办公区", "清洁用品无处安放", "家里柜子很多但不好用", "东西经常找不到", "空间看起来拥挤"]}
+              options={["鞋子没有地方放", "衣服很多", "换季被褥没地方收", "小家电占满餐桌", "孩子玩具到处都是", "没有固定办公区", "清洁用品无处安放", "家里柜子很多但不好用", "东西经常找不到", "空间看起来拥挤", "其他"]}
               value={input.problems}
               onChange={(v) => setFlow((current) => ({ ...current, input: { ...current.input, problems: v as string[] } }))}
-              maxSelections={10}
+              maxSelections={11}
             />
           </WizardStep>
         )}
@@ -453,7 +453,7 @@ function DiagnosisPage() {
             <p className="muted">最多选择 3 个重点空间。</p>
             <PillPicker
               multi
-              options={["玄关", "客厅", "餐厅", "厨房", "主卧", "儿童房", "书房", "阳台", "到处都乱"]}
+              options={["玄关", "客厅", "餐厅", "厨房", "主卧", "儿童房", "书房", "阳台", "到处都乱", "其他"]}
               value={input.messySpaces}
               onChange={(v) => setFlow((current) => ({ ...current, input: { ...current.input, messySpaces: v as string[] } }))}
               maxSelections={3}
@@ -608,14 +608,18 @@ function DiagnosisResultPage() {
         </div>
       </section>
 
-      <section className="final-cta">
-        <h2>下一步，把诊断结果发给设计师，看看你的户型能怎么落地。</h2>
-        <div className="button-row center">
-          <Link className="button light" to="/cases">查看推荐案例</Link>
-          <Link className="button outline-light" to="/diagnosis" onClick={startNewDiagnosisSession}>重新诊断</Link>
-          <Link className="button outline-light" to="/budget" onClick={startNewBudgetSession}>规划我的预算</Link>
-          <button className="button outline-light" onClick={openLead}>上传户型 / 提交需求</button>
+      <section className="final-cta diagnosis-conversion-cta">
+        <span className="eyebrow">NEXT STEP</span>
+        <h2>下一步，把户型和需求发给设计师。</h2>
+        <p>系统已经整理出你的家庭结构、收纳重点、风格偏好和预算方向。上传户型图后，设计师可以更快判断哪些空间值得优先规划。</p>
+        <div className="diagnosis-primary-action">
+          <button className="button dark" onClick={() => openLead("诊断结果页")}>上传户型图，获取初步规划建议</button>
         </div>
+        <div className="diagnosis-secondary-actions">
+          <Link className="button ghost" to="/cases">查看推荐案例</Link>
+          <Link className="button ghost" to="/budget" onClick={startNewBudgetSession}>规划我的预算</Link>
+        </div>
+        <Link className="diagnosis-restart-link" to="/diagnosis" onClick={startNewDiagnosisSession}>重新诊断</Link>
       </section>
     </section>
   );
@@ -725,7 +729,7 @@ function CaseDetailPage() {
       <section className="section warm">
         <div className="section-title split">
           <h2>相似案例推荐</h2>
-          <button className="text-link as-button" onClick={openLead}>上传我的户型</button>
+          <button className="text-link as-button" onClick={() => openLead()}>上传我的户型</button>
         </div>
         <div className="case-grid">{similar.map((candidate) => <CaseCard item={candidate} key={candidate.id} />)}</div>
       </section>
@@ -914,7 +918,7 @@ function BudgetPage() {
           <p>根据当前选择，你的项目属于：{level}全屋定制需求。</p>
           <p className="fineprint">当前结果仅用于预算规划演示。实际项目需根据测量尺寸、柜体展开结构、材料、五金和安装条件确认。</p>
           <div className="impact-list">{["定制范围", "柜体内部结构", "门板与饰面", "功能五金"].map((item) => <span key={item}>{item}</span>)}</div>
-          <button className="button dark" onClick={openLead}>上传户型，进一步了解规划方向</button>
+          <button className="button dark" onClick={() => openLead()}>上传户型，进一步了解规划方向</button>
         </aside>
       </div>
     </section>

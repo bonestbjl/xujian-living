@@ -886,6 +886,63 @@ p, li {
   text-align: center;
 }
 
+.diagnosis-conversion-cta {
+  background: #eee5d8;
+  color: var(--ink);
+  display: grid;
+  gap: 1rem;
+  justify-items: center;
+  margin-top: 2rem;
+  padding: clamp(3rem, 7vw, 5.5rem) clamp(1rem, 5vw, 4rem);
+}
+
+.diagnosis-conversion-cta > .eyebrow {
+  color: var(--wood);
+}
+
+.diagnosis-conversion-cta h2 {
+  font-size: clamp(2rem, 4vw, 3.6rem);
+  margin: 0;
+  max-width: 900px;
+}
+
+.diagnosis-conversion-cta > p {
+  color: var(--muted);
+  margin: 0;
+  max-width: 760px;
+}
+
+.diagnosis-primary-action {
+  margin-top: 0.75rem;
+  max-width: 620px;
+  width: 100%;
+}
+
+.diagnosis-primary-action .button {
+  font-size: 1.05rem;
+  min-height: 58px;
+  width: 100%;
+}
+
+.diagnosis-secondary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  justify-content: center;
+}
+
+.diagnosis-secondary-actions .button {
+  min-width: 170px;
+}
+
+.diagnosis-restart-link {
+  border-bottom: 1px solid rgba(31, 30, 27, 0.34);
+  color: var(--muted);
+  font-size: 0.88rem;
+  margin-top: 0.25rem;
+  padding-bottom: 0.15rem;
+}
+
 .stat-grid strong {
   border: 1px solid rgba(255, 250, 242, 0.2);
   padding: 1rem;
@@ -2868,6 +2925,20 @@ blockquote {
 
   .diagnosis-footer .button {
     min-height: 50px;
+  }
+
+  .diagnosis-conversion-cta {
+    padding: 2.75rem 1rem;
+  }
+
+  .diagnosis-conversion-cta h2 {
+    font-size: 2rem;
+  }
+
+  .diagnosis-primary-action,
+  .diagnosis-secondary-actions,
+  .diagnosis-secondary-actions .button {
+    width: 100%;
   }
 
   .case-grid,
