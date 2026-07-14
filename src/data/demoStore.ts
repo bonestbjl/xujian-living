@@ -14,7 +14,6 @@ import { getMerchantLocalRecords, saveLeadRecord, type LeadSubmission } from "./
 import {
   createAdvancedAdminData,
   type CaseChangeRequest,
-  type ContentPlanItem,
   type InfluencerCollaboration
 } from "./advancedAdmin";
 
@@ -23,7 +22,6 @@ export type AdminDemoData = {
   followUps: FollowUp[];
   activities: Activity[];
   caseRequests: CaseChangeRequest[];
-  contentItems: ContentPlanItem[];
   influencerCollabs: InfluencerCollaboration[];
 };
 
@@ -172,7 +170,6 @@ export function loadAdminDemoData(): AdminDemoData {
   const savedFollowUps = Array.isArray(saved.followUps) ? saved.followUps.filter((followUp) => followUp.merchantId === getCurrentMerchantId()) : [];
   const savedActivities = Array.isArray(saved.activities) ? saved.activities.filter((activity) => activity.merchantId === getCurrentMerchantId()) : [];
   const savedCaseRequests = Array.isArray(saved.caseRequests) ? saved.caseRequests.filter((request) => request.merchantId === getCurrentMerchantId()) : [];
-  const savedContentItems = Array.isArray(saved.contentItems) ? saved.contentItems.filter((item) => item.merchantId === getCurrentMerchantId()) : [];
   const savedInfluencerCollabs = Array.isArray(saved.influencerCollabs) ? saved.influencerCollabs.filter((item) => item.merchantId === getCurrentMerchantId()) : [];
 
   const mergedLeads = base.leads.map((lead) => {
@@ -193,7 +190,6 @@ export function loadAdminDemoData(): AdminDemoData {
     followUps: mergeById(savedFollowUps, base.followUps),
     activities: mergeById(base.activities, savedActivities),
     caseRequests: savedCaseRequests.length ? savedCaseRequests : base.caseRequests,
-    contentItems: savedContentItems.length ? savedContentItems : base.contentItems,
     influencerCollabs: savedInfluencerCollabs.length ? savedInfluencerCollabs : base.influencerCollabs
   };
 }

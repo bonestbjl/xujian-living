@@ -39,11 +39,19 @@ import { clearCurrentDeviceScopedData } from "./utils/storage";
 import {
   type CaseChangeRequest,
   type CaseChangeType,
-  type ContentPlanItem,
-  type ContentStatus,
   type InfluencerCollaboration,
   type InfluencerStatus
 } from "./data/advancedAdmin";
+import {
+  contentMonthOptions,
+  contentPlatformOptions,
+  contentTopics,
+  contentTypeOptions,
+  getContentPlatformLabel,
+  type ContentTopic,
+  type ContentTopicPlatform,
+  type ContentTopicType
+} from "./data/contentTopics";
 
 type OutletTools = { openLead: () => void };
 
@@ -76,6 +84,57 @@ const defaultDiagnosis: DiagnosisState = {
   priority: "",
   budgetPreference: ""
 };
+
+const diagnosisStepMeta = [
+  {
+    label: "HOME LAYOUT",
+    description: "这会影响玄关、餐边柜、卧室收纳和公共区的规划方式。",
+    hint: "先判断户型结构，再匹配相似家庭方案。",
+    purpose: "识别你的空间基础条件"
+  },
+  {
+    label: "FAMILY PROFILE",
+    description: "家庭成员决定空间如何分配，也影响未来几年的收纳变化。",
+    hint: "理解共同生活的人，才能判断空间真正服务于谁。",
+    purpose: "建立家庭结构与使用关系"
+  },
+  {
+    label: "DAILY ROUTINE",
+    description: "生活习惯会决定柜体位置、公共区功能和日常动线。",
+    hint: "从每天重复发生的动作里，找到设计的优先级。",
+    purpose: "还原真实的居住场景"
+  },
+  {
+    label: "STORAGE NEEDS",
+    description: "不同物品需要不同的深度、位置与取用方式。",
+    hint: "先确认需要收什么，再判断柜子应该怎么做。",
+    purpose: "识别重点收纳对象"
+  },
+  {
+    label: "PAIN POINTS",
+    description: "这些高频困扰会帮助我们判断空间问题的根源。",
+    hint: "问题越具体，后续匹配的方案越接近真实生活。",
+    purpose: "定位当前空间矛盾"
+  },
+  {
+    label: "STYLE PREFERENCE",
+    description: "风格不只是颜色，也会影响材质、比例与空间松弛感。",
+    hint: "选择更接近你理想居住感受的视觉方向。",
+    purpose: "确定空间气质与材质倾向"
+  },
+  {
+    label: "SPACE PRIORITY",
+    description: "优先解决高频使用区域，可以让预算和设计更有重点。",
+    hint: "从最影响日常体验的空间开始，而不是平均用力。",
+    purpose: "建立空间规划顺序"
+  },
+  {
+    label: "BUDGET APPROACH",
+    description: "预算倾向会影响定制范围、材料选择和落地节奏。",
+    hint: "最后确认投入方式，形成更完整的方案判断。",
+    purpose: "理解项目投入与落地偏好"
+  }
+] as const;
 
 function diagnosisStateFromAnswers(answers: Record<string, unknown>): DiagnosisState {
   return { ...defaultDiagnosis, ...answers } as DiagnosisState;
@@ -242,6 +301,18 @@ function DiagnosisPage() {
   });
   const { diagnosisSessionId, step, input } = flow;
   const stepsTotal = 8;
+  const stepMeta = diagnosisStepMeta[step - 1];
+  const selectedCount = [
+    input.layout ? 1 : 0,
+    input.members.length,
+    input.habits.length,
+    input.storageNeeds.length,
+    input.problems.length,
+    input.style ? 1 : 0,
+    input.messySpaces.length,
+    input.budgetPreference ? 1 : 0
+  ][step - 1];
+  const isMultiStep = [2, 3, 4, 5, 7].includes(step);
   const styleImages = [
     images.diagnosisModernWood,
     images.diagnosisCreamNatural,
@@ -254,6 +325,10 @@ function DiagnosisPage() {
   useEffect(() => {
     saveCurrentDiagnosis(diagnosisSessionId, step, { ...input });
   }, [diagnosisSessionId, input, step]);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [step]);
 
   useEffect(() => {
     const resetFlow = (event: Event) => {
@@ -286,14 +361,24 @@ function DiagnosisPage() {
 
   return (
     <section className="diagnosis-page">
+      <div className="diagnosis-page-index">DIAGNOSIS / XUJIAN LIVING</div>
+      <div className="diagnosis-keywords" aria-hidden="true">
+        <span>LAYOUT</span><span>FAMILY</span><span>STORAGE</span><span>STYLE</span>
+      </div>
       <div className="diagnosis-shell">
-        <div className="diagnosis-progress">
-          <span>{step} / {stepsTotal}</span>
-          <div><i style={{ width: `${(step / stepsTotal) * 100}%` }} /></div>
-        </div>
+        <div className="diagnosis-corner-line" aria-hidden="true" />
+        <header className="diagnosis-progress">
+          <div className="diagnosis-progress-heading">
+            <span>SPACE DIAGNOSIS</span>
+            <div><strong>STEP {String(step).padStart(2, "0")}</strong><small>OF {String(stepsTotal).padStart(2, "0")}</small></div>
+          </div>
+          <div className="diagnosis-progress-track"><i style={{ width: `${(step / stepsTotal) * 100}%` }} /></div>
+          <p>{stepMeta.hint}</p>
+        </header>
 
+        <div className="diagnosis-step-stage" key={step}>
         {step === 1 && (
-          <WizardStep title="你家是什么户型？">
+          <WizardStep title="你家是什么户型？" label={stepMeta.label} description={stepMeta.description}>
             <PillPicker
               options={["两室一厅", "两室两厅", "三室两厅", "四室两厅", "大平层", "复式"]}
               value={input.layout}
@@ -303,7 +388,7 @@ function DiagnosisPage() {
         )}
 
         {step === 2 && (
-          <WizardStep title="现在谁和你一起生活？">
+          <WizardStep title="现在谁和你一起生活？" label={stepMeta.label} description={stepMeta.description}>
             <PillPicker
               multi
               options={["自己", "伴侣", "一个孩子", "两个及以上孩子", "父母", "宠物"]}
@@ -315,7 +400,7 @@ function DiagnosisPage() {
         )}
 
         {step === 3 && (
-          <WizardStep title="哪些生活习惯最像你家？">
+          <WizardStep title="哪些生活习惯最像你家？" label={stepMeta.label} description={stepMeta.description}>
             <PillPicker
               multi
               options={["经常居家办公", "每天做饭", "常在家喝咖啡", "孩子会在客厅活动", "父母偶尔长住", "有宠物", "朋友经常来家里"]}
@@ -327,7 +412,7 @@ function DiagnosisPage() {
         )}
 
         {step === 4 && (
-          <WizardStep title="收纳最需要解决什么？">
+          <WizardStep title="收纳最需要解决什么？" label={stepMeta.label} description={stepMeta.description}>
             <PillPicker
               multi
               options={["鞋子很多", "衣服很多", "换季被褥", "小家电需要集中收纳", "玩具绘本", "清洁用品", "宠物用品", "文件和办公设备"]}
@@ -339,7 +424,7 @@ function DiagnosisPage() {
         )}
 
         {step === 5 && (
-          <WizardStep title="下面哪些问题最像你家？">
+          <WizardStep title="下面哪些问题最像你家？" label={stepMeta.label} description={stepMeta.description}>
             <PillPicker
               multi
               options={["鞋子没有地方放", "衣服很多", "换季被褥没地方收", "小家电占满餐桌", "孩子玩具到处都是", "没有固定办公区", "清洁用品无处安放", "家里柜子很多但不好用", "东西经常找不到", "空间看起来拥挤"]}
@@ -351,7 +436,7 @@ function DiagnosisPage() {
         )}
 
         {step === 6 && (
-          <WizardStep title="你更希望家是什么感觉？">
+          <WizardStep title="你更希望家是什么感觉？" label={stepMeta.label} description={stepMeta.description}>
             <div className="style-grid">
               {["现代原木", "奶油自然", "现代极简", "中古", "意式现代", "自然松弛"].map((style, index) => (
                 <button className={input.style === style ? "style-card selected" : "style-card"} onClick={() => setFlow((current) => ({ ...current, input: { ...current.input, style } }))} key={style}>
@@ -364,7 +449,7 @@ function DiagnosisPage() {
         )}
 
         {step === 7 && (
-          <WizardStep title="哪些空间最需要优先规划？">
+          <WizardStep title="哪些空间最需要优先规划？" label={stepMeta.label} description={stepMeta.description}>
             <p className="muted">最多选择 3 个重点空间。</p>
             <PillPicker
               multi
@@ -377,7 +462,7 @@ function DiagnosisPage() {
         )}
 
         {step === 8 && (
-          <WizardStep title="你目前更倾向哪种预算方式？">
+          <WizardStep title="你目前更倾向哪种预算方式？" label={stepMeta.label} description={stepMeta.description}>
             <PillPicker
               options={["先把空间规划好", "实用优先", "设计与品质平衡", "高阶质感", "严格控制预算", "后期落地效果更重要"]}
               value={input.budgetPreference}
@@ -385,10 +470,20 @@ function DiagnosisPage() {
             />
           </WizardStep>
         )}
+        </div>
 
-        <div className="wizard-actions">
-          {step > 1 && <button className="button ghost" onClick={() => setFlow((current) => ({ ...current, step: current.step - 1 }))}>上一步</button>}
-          <button className="button dark" onClick={next}>{step === stepsTotal ? "查看诊断结果" : "下一步"}</button>
+        <div className="diagnosis-footer">
+          <div className="diagnosis-purpose">
+            <span>本步骤用于</span>
+            <strong>{stepMeta.purpose}</strong>
+            {isMultiStep && <small>已选择 {selectedCount} 项</small>}
+          </div>
+          <div className="wizard-actions">
+            {step > 1 && <button className="button ghost" onClick={() => setFlow((current) => ({ ...current, step: current.step - 1 }))}>上一步</button>}
+            <button className="button dark diagnosis-next" onClick={next}>
+              {step === stepsTotal ? "生成诊断结果" : "下一步"}<ChevronRight size={17} aria-hidden="true" />
+            </button>
+          </div>
         </div>
       </div>
     </section>
@@ -643,8 +738,17 @@ function CaseDetailPage() {
   );
 }
 
-function WizardStep({ title, children }: { title: string; children: React.ReactNode }) {
-  return <div className="wizard-step"><h2>{title}</h2>{children}</div>;
+function WizardStep({ title, label, description, children }: { title: string; label: string; description: string; children: React.ReactNode }) {
+  return (
+    <div className="wizard-step">
+      <div className="wizard-step-copy">
+        <span>{label}</span>
+        <h2>{title}</h2>
+        <p>{description}</p>
+      </div>
+      {children}
+    </div>
+  );
 }
 
 function InspirationPage() {
@@ -888,12 +992,10 @@ type AdminDemoTools = {
   followUps: FollowUp[];
   activities: Activity[];
   caseRequests: CaseChangeRequest[];
-  contentItems: ContentPlanItem[];
   influencerCollabs: InfluencerCollaboration[];
   updateLead: (id: string, changes: Partial<AdminLead>) => void;
   addFollowUp: (entry: Omit<FollowUp, "merchantId" | "id" | "createdAt" | "ownerId" | "done">) => void;
   addCaseRequest: (entry: Omit<CaseChangeRequest, "id" | "merchantId" | "status" | "serviceNote" | "quotaMonth" | "createdAt" | "completedAt">) => void;
-  updateContentStatus: (id: string, status: ContentStatus) => void;
   updateInfluencer: (id: string, changes: Partial<InfluencerCollaboration>) => void;
   resetDemoData: () => void;
   clearCurrentDeviceData: () => void;
@@ -946,13 +1048,6 @@ function AdminShell() {
       completedAt: ""
     };
     setDemoData((current) => ({ ...current, caseRequests: [request, ...current.caseRequests] }));
-  };
-
-  const updateContentStatus = (id: string, status: ContentStatus) => {
-    setDemoData((current) => ({
-      ...current,
-      contentItems: current.contentItems.map((item) => item.id === id ? { ...item, status } : item)
-    }));
   };
 
   const updateInfluencer = (id: string, changes: Partial<InfluencerCollaboration>) => {
@@ -1025,12 +1120,10 @@ function AdminShell() {
           followUps: demoData.followUps,
           activities: demoData.activities,
           caseRequests: demoData.caseRequests,
-          contentItems: demoData.contentItems,
           influencerCollabs: demoData.influencerCollabs,
           updateLead,
           addFollowUp,
           addCaseRequest,
-          updateContentStatus,
           updateInfluencer,
           resetDemoData,
           clearCurrentDeviceData
@@ -1530,7 +1623,6 @@ function AdminFollowUpsPage() {
 }
 
 const caseChangeTypes: CaseChangeType[] = ["替换图片", "修改标题", "修改文案", "调整标签", "新增案例", "下架案例"];
-const contentStatuses: ContentStatus[] = ["待拍摄", "待发布", "已发布", "待复盘"];
 const influencerStatuses: InfluencerStatus[] = ["待筛选", "待联系", "沟通中", "已确认", "已发布", "已复盘"];
 
 function AdminCaseRequestsPage() {
@@ -1680,68 +1772,181 @@ function AdminCaseRequestsPage() {
 }
 
 function AdminContentCenterPage() {
-  const { contentItems, updateContentStatus } = useAdminDemo();
-  const [platform, setPlatform] = useState("全部");
-  const filteredItems = platform === "全部" ? contentItems : contentItems.filter((item) => item.platform === platform);
-  const todayItems = contentItems.filter((item) => item.recommendedToday).slice(0, 3);
+  const [month, setMonth] = useState("2026-07");
+  const [platform, setPlatform] = useState<"all" | ContentTopicPlatform>("all");
+  const [topicType, setTopicType] = useState<"all" | ContentTopicType>("all");
+  const [selectedTopic, setSelectedTopic] = useState<ContentTopic | null>(null);
+  const monthLabel = contentMonthOptions.find((option) => option.value === month)?.label ?? month;
+  const monthTopics = contentTopics.filter((topic) => topic.month === month);
+  const filteredTopics = monthTopics.filter((topic) => (
+    (platform === "all" || topic.platform === platform)
+    && (topicType === "all" || topic.topicType === topicType)
+  ));
+  const platformCounts = contentPlatformOptions
+    .filter((option) => option.value !== "all")
+    .map((option) => ({
+      ...option,
+      count: monthTopics.filter((topic) => topic.platform === option.value).length
+    }));
+
+  useEffect(() => {
+    if (!selectedTopic) return undefined;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSelectedTopic(null);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [selectedTopic]);
 
   return (
     <div className="admin-main content-center-page">
-      <section className="admin-panel admin-page-heading">
-        <div><span className="eyebrow">CONTENT CENTER</span><h2>内容中心</h2><p>围绕真实户型、柜体预算和生活动线安排本周内容，不使用空泛营销话术。</p></div>
+      <section className="admin-panel admin-page-heading content-library-heading">
+        <div>
+          <span className="eyebrow">MONTHLY TOPIC LIBRARY</span>
+          <h2>内容选题库</h2>
+          <p>每月为商家整理适合抖音、小红书、视频号的内容选题方向。选题用于辅助商家持续输出内容，实际拍摄与发布效果取决于账号基础、执行质量和平台反馈。</p>
+        </div>
         <span className="service-note">进阶版内容选题服务</span>
       </section>
 
-      <section className="admin-panel">
-        <div className="panel-title"><div><span className="eyebrow">TODAY</span><h2>今日推荐选题</h2></div><span>优先拍摄 3 条</span></div>
-        <div className="content-recommend-grid">
-          {todayItems.map((item) => (
-            <article data-content-id={item.id} key={item.id}>
-              <span>{item.platform} · {item.category}</span>
-              <h3>{item.title}</h3>
-              <p>{item.hook}</p>
-              <strong>{item.plannedDate} · {item.status}</strong>
-            </article>
-          ))}
+      <section className="content-library-note" aria-label="内容服务说明">
+        <strong>服务说明</strong>
+        <p>这里提供的是“选题方向”和“内容承接建议”，不是拍摄计划，也不承诺具体流量效果。</p>
+      </section>
+
+      <section className="admin-panel content-library-controls">
+        <div className="content-month-row">
+          <label className="content-month-select">
+            <span>月份选择</span>
+            <select value={month} onChange={(event) => setMonth(event.target.value)}>
+              {contentMonthOptions.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}
+            </select>
+          </label>
+          <div className="content-month-summary">
+            <span>{monthLabel}选题</span>
+            <strong>{monthTopics.length} 个方向</strong>
+          </div>
+        </div>
+
+        <div className="content-filter-group">
+          <span>平台筛选</span>
+          <div className="content-filter-tabs">
+            {contentPlatformOptions.map((option) => (
+              <button type="button" className={platform === option.value ? "selected" : ""} onClick={() => setPlatform(option.value)} key={option.value}>{option.label}</button>
+            ))}
+          </div>
+        </div>
+
+        <div className="content-filter-group">
+          <span>类型筛选</span>
+          <div className="content-filter-tabs">
+            {contentTypeOptions.map((option) => (
+              <button type="button" className={topicType === option.value ? "selected" : ""} onClick={() => setTopicType(option.value)} key={option.value}>{option.label}</button>
+            ))}
+          </div>
         </div>
       </section>
 
-      <section className="admin-panel">
-        <div className="panel-title"><div><span className="eyebrow">TOPIC LIBRARY</span><h2>平台选题与标题建议</h2></div></div>
-        <div className="content-filter-tabs">
-          {["全部", "抖音", "小红书", "视频号"].map((item) => <button className={platform === item ? "selected" : ""} onClick={() => setPlatform(item)} key={item}>{item}选题</button>)}
+      <section className="content-topic-stats" aria-label={`${monthLabel}平台选题统计`}>
+        <div className="content-topic-stats-heading">
+          <span>{monthLabel}选题：</span>
+          <small>按平台整理，不按日期拆分</small>
         </div>
-        <div className="content-title-list">
-          {filteredItems.map((item) => (
-            <article data-content-id={item.id} key={item.id}>
-              <div><span>{item.platform} · {item.category}</span><h3>{item.title}</h3><p>开场建议：{item.hook}</p></div>
-              <label>内容状态
-                <select value={item.status} onChange={(event) => updateContentStatus(item.id, event.target.value as ContentStatus)}>
-                  {contentStatuses.map((status) => <option key={status}>{status}</option>)}
-                </select>
-              </label>
-            </article>
-          ))}
-        </div>
+        {platformCounts.map((item) => (
+          <article key={item.value}>
+            <span>{item.label}</span>
+            <strong>{item.count}</strong>
+            <small>个选题</small>
+          </article>
+        ))}
       </section>
 
-      <section className="admin-panel">
-        <div className="panel-title"><div><span className="eyebrow">WEEKLY PLAN</span><h2>本周内容计划</h2></div><span>按拍摄与发布节奏推进</span></div>
-        <div className="weekly-content-plan">
-          {contentItems.slice(0, 7).map((item) => (
-            <article key={item.id}><time>{item.plannedDate}</time><div><strong>{item.title}</strong><p>{item.platform} · {item.category}</p></div><span className="status-pill" data-status={item.status}>{item.status}</span></article>
-          ))}
+      <section className="content-topic-section">
+        <div className="panel-title">
+          <div><span className="eyebrow">TOPIC COLLECTION</span><h2>{monthLabel}内容方向</h2></div>
+          <span>当前显示 {filteredTopics.length} 个</span>
         </div>
+        {filteredTopics.length > 0 ? (
+          <div className="content-topic-grid">
+            {filteredTopics.map((topic) => (
+              <article className="content-topic-card" data-topic-id={topic.id} key={topic.id}>
+                <div className="content-topic-card-meta">
+                  <span>{getContentPlatformLabel(topic.platform)}</span>
+                  <span>{topic.topicType}</span>
+                  <strong data-priority={topic.priority}>{topic.priority}</strong>
+                </div>
+                <h3>{topic.title}</h3>
+                <p>{topic.hook}</p>
+                <div className="content-topic-entry">
+                  <span>适合承接页面</span>
+                  <strong>{topic.relatedEntry.join(" / ")}</strong>
+                </div>
+                <button className="button secondary content-topic-detail-button" type="button" onClick={() => setSelectedTopic(topic)}>查看详情</button>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="content-topic-empty">
+            <strong>当前筛选下暂无选题</strong>
+            <p>{monthLabel}的内容方向尚未录入，可以切换到 2026年7月查看完整示例。</p>
+          </div>
+        )}
       </section>
 
-      <section className="admin-panel">
-        <div className="panel-title"><div><span className="eyebrow">SCRIPT NOTES</span><h2>简单脚本与拍摄建议</h2></div></div>
-        <div className="script-advice-grid">
-          {filteredItems.slice(0, 6).map((item) => (
-            <article key={item.id}><span>{item.platform}</span><h3>{item.title}</h3><p><strong>脚本：</strong>{item.script}</p><p><strong>拍摄：</strong>{item.shootingTip}</p></article>
-          ))}
+      {selectedTopic && (
+        <div className="admin-drawer-backdrop content-topic-drawer-backdrop" role="presentation" onMouseDown={() => setSelectedTopic(null)}>
+          <aside className="admin-drawer content-topic-drawer" role="dialog" aria-modal="true" aria-labelledby="content-topic-drawer-title" onMouseDown={(event) => event.stopPropagation()}>
+            <header className="content-topic-drawer-header">
+              <div>
+                <span className="eyebrow">TOPIC DETAILS</span>
+                <h2 id="content-topic-drawer-title">{selectedTopic.title}</h2>
+              </div>
+              <button className="content-topic-drawer-close" type="button" onClick={() => setSelectedTopic(null)} aria-label="关闭选题详情">关闭</button>
+            </header>
+
+            <div className="content-topic-drawer-meta">
+              <span>{getContentPlatformLabel(selectedTopic.platform)}</span>
+              <span>{selectedTopic.topicType}</span>
+              <strong>{selectedTopic.priority}</strong>
+            </div>
+
+            <section className="content-topic-detail-section">
+              <h3>适合客户痛点</h3>
+              <div className="content-topic-tags">{selectedTopic.painPoints.map((item) => <span key={item}>{item}</span>)}</div>
+            </section>
+
+            <section className="content-topic-detail-section">
+              <h3>推荐切入角度</h3>
+              <ul>{selectedTopic.angles.map((item) => <li key={item}>{item}</li>)}</ul>
+            </section>
+
+            <section className="content-topic-detail-section">
+              <h3>标题参考</h3>
+              <ol>{selectedTopic.titleIdeas.map((item) => <li key={item}>{item}</li>)}</ol>
+            </section>
+
+            <section className="content-topic-detail-section">
+              <h3>内容要点</h3>
+              <ul>{selectedTopic.contentPoints.map((item) => <li key={item}>{item}</li>)}</ul>
+            </section>
+
+            <section className="content-topic-detail-section content-topic-related-grid">
+              <div><h3>可关联案例</h3><ul>{selectedTopic.relatedCases.map((item) => <li key={item}>{item}</li>)}</ul></div>
+              <div><h3>可关联系统入口</h3><ul>{selectedTopic.relatedEntry.map((item) => <li key={item}>{item}</li>)}</ul></div>
+            </section>
+
+            <section className="content-topic-detail-section content-topic-cta">
+              <h3>建议承接引导</h3>
+              <p>{selectedTopic.cta}</p>
+            </section>
+
+            <section className="content-topic-risk">
+              <h3>风险提示</h3>
+              <p>{selectedTopic.riskNote}</p>
+            </section>
+          </aside>
         </div>
-      </section>
+      )}
     </div>
   );
 }
