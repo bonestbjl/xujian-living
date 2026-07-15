@@ -515,10 +515,24 @@ function DiagnosisResultPage() {
   return (
     <section className="page-section diagnosis-result-page">
       <header className="diagnosis-result-hero">
-        <span className="eyebrow">空间诊断完成</span>
-        <h1>根据你的选择，你的家庭属于：<br />成长型 · 高收纳需求家庭</h1>
-        <div className="result-tags">
-          {[input.layout, input.areaRange, `${family}家庭`, ...input.habits.slice(0, 2), `偏好${input.style}`].map((tag) => <span key={tag}>{tag}</span>)}
+        <div className="diagnosis-report-kicker">
+          <span>SPACE DIAGNOSIS REPORT</span>
+          <small>空间诊断完成</small>
+        </div>
+        <h1>你的家庭空间画像</h1>
+        <p className="diagnosis-report-intro">根据你的户型、家庭成员、生活习惯和收纳需求，系统生成了以下初步判断。</p>
+        <div className="diagnosis-conclusion">
+          <span>诊断结论</span>
+          <strong>成长型 · 高收纳需求家庭</strong>
+          <p>更适合先建立玄关、餐厅、主卧和儿童房之间的完整收纳路径，而不是单纯增加柜体数量。</p>
+        </div>
+        <div className="diagnosis-input-summary">
+          <span>INPUT SUMMARY · 你的选择摘要</span>
+          <div className="result-tags">
+            {[input.layout, input.areaRange, `${family}家庭`, ...input.habits.slice(0, 2), `偏好${input.style}`]
+              .filter((tag) => tag.trim())
+              .map((tag, index) => <span key={`${tag}-${index}`}>{tag}</span>)}
+          </div>
         </div>
       </header>
 
