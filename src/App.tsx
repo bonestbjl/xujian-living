@@ -453,7 +453,7 @@ function DiagnosisPage() {
             <p className="muted">最多选择 3 个重点空间。</p>
             <PillPicker
               multi
-              options={["玄关", "客厅", "餐厅", "厨房", "主卧", "儿童房", "书房", "阳台", "到处都乱", "其他"]}
+              options={["玄关", "客厅", "餐厅", "厨房", "主卧", "儿童房", "书房", "阳台", "全屋缺少统一收纳规划", "其他"]}
               value={input.messySpaces}
               onChange={(v) => setFlow((current) => ({ ...current, input: { ...current.input, messySpaces: v as string[] } }))}
               maxSelections={3}
